@@ -38,9 +38,13 @@ export interface PowerUp extends GameObject {
 
 export interface Enemy extends GameObject {
   velocityX: number;
-  type: 'patrol' | 'fly';
+  velocityY: number;
+  type: 'patrol' | 'fly' | 'stalker' | 'jumper';
   range: number;
   startX: number;
+  isAggro?: boolean;
+  lastJumpTime?: number;
+  isGrounded?: boolean;
 }
 
 export interface Coin extends GameObject {

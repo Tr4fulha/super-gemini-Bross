@@ -40,6 +40,7 @@ const App: React.FC = () => {
     setLevelInfo(info);
     setCurrentLevelIdx(levelIdx);
 
+    // Estrutura base de níveis (pode ser expandida via Gemini no futuro)
     let platforms: Platform[] = [];
     let coins: Coin[] = [];
     let enemies: Enemy[] = [];
@@ -47,52 +48,46 @@ const App: React.FC = () => {
     let goal: Goal = { x: 0, y: 0, width: 40, height: 100 };
 
     if (levelIdx === 0) {
-      // Level 1: Sky Meadows + Secret Cloud Area
       platforms = [
         { x: 0, y: 540, width: 1200, height: 60, type: 'solid' },
         { x: 400, y: 410, width: 64, height: 32, type: 'breakable' },
-        { x: 464, y: 410, width: 64, height: 32, type: 'breakable' }, // Contém Mushroom
+        { x: 464, y: 410, width: 64, height: 32, type: 'breakable' },
         { x: 528, y: 410, width: 64, height: 32, type: 'breakable' },
-        { x: 1300, y: 540, width: 800, height: 60, type: 'solid' },
+        { x: 1300, y: 540, width: 1000, height: 60, type: 'solid' },
         { x: 1450, y: 380, width: 120, height: 24, type: 'grass' },
-        { x: 1550, y: 150, width: 300, height: 24, type: 'grass' }, // NUVEM SECRETA
-        { x: 2200, y: 540, width: 1500, height: 60, type: 'solid' },
+        { x: 1550, y: 150, width: 300, height: 24, type: 'grass' },
+        { x: 2300, y: 540, width: 1500, height: 60, type: 'solid' },
       ];
       coins = [
         { x: 415, y: 370, width: 20, height: 20, collected: false },
         { x: 1600, y: 100, width: 20, height: 20, collected: false },
-        { x: 1700, y: 100, width: 20, height: 20, collected: false },
       ];
       powerUps = [{ x: 480, y: 340, width: 24, height: 24, type: 'mushroom', collected: false }];
       enemies = [
-        { x: 800, y: 510, width: 30, height: 30, velocityX: 2, type: 'patrol', range: 150, startX: 800 },
-        { x: 2500, y: 510, width: 30, height: 30, velocityX: 3, type: 'patrol', range: 300, startX: 2500 },
+        { x: 800, y: 510, width: 30, height: 30, velocityX: 2, velocityY: 0, type: 'patrol', range: 200, startX: 800 },
+        { x: 1600, y: 510, width: 30, height: 30, velocityX: 1.5, velocityY: 0, type: 'stalker', range: 0, startX: 1600 },
+        { x: 2600, y: 510, width: 30, height: 30, velocityX: 2, velocityY: 0, type: 'jumper', range: 200, startX: 2600 },
       ];
-      goal = { x: 3400, y: 440, width: 40, height: 100 };
+      goal = { x: 3600, y: 440, width: 40, height: 100 };
     } else {
-      // Level 2: Magma Chambers + Hidden Path
       platforms = [
         { x: 0, y: 540, width: 400, height: 60, type: 'solid' },
         { x: 400, y: 580, width: 800, height: 20, type: 'lava' },
         { x: 550, y: 440, width: 120, height: 24, type: 'grass' },
         { x: 850, y: 380, width: 120, height: 24, type: 'grass' },
-        { x: 1200, y: 540, width: 1000, height: 60, type: 'solid' },
-        { x: 1500, y: 420, width: 192, height: 32, type: 'breakable' }, // Esconde atalho
-        { x: 2200, y: 580, width: 1000, height: 20, type: 'lava' },
-        { x: 2300, y: 420, width: 120, height: 24, type: 'grass' },
-        { x: 2600, y: 420, width: 120, height: 24, type: 'grass' },
-        { x: 3200, y: 540, width: 800, height: 60, type: 'solid' },
+        { x: 1200, y: 540, width: 1200, height: 60, type: 'solid' },
+        { x: 1500, y: 420, width: 192, height: 32, type: 'breakable' },
+        { x: 2400, y: 580, width: 1000, height: 20, type: 'lava' },
+        { x: 3400, y: 540, width: 800, height: 60, type: 'solid' },
       ];
-      coins = [
-        { x: 1550, y: 380, width: 20, height: 20, collected: false },
-        { x: 1600, y: 380, width: 20, height: 20, collected: false },
-      ];
+      coins = [{ x: 1550, y: 380, width: 20, height: 20, collected: false }];
       powerUps = [{ x: 580, y: 380, width: 24, height: 24, type: 'mushroom', collected: false }];
       enemies = [
-        { x: 1400, y: 510, width: 30, height: 30, velocityX: 4, type: 'patrol', range: 200, startX: 1400 },
-        { x: 2400, y: 300, width: 30, height: 30, velocityX: 2, type: 'fly', range: 150, startX: 2400 },
+        { x: 1300, y: 510, width: 30, height: 30, velocityX: 4, velocityY: 0, type: 'patrol', range: 300, startX: 1300 },
+        { x: 1800, y: 300, width: 30, height: 30, velocityX: 2, velocityY: 0, type: 'fly', range: 200, startX: 1800 },
+        { x: 3500, y: 510, width: 30, height: 30, velocityX: 1.5, velocityY: 0, type: 'stalker', range: 0, startX: 3500 },
       ];
-      goal = { x: 3700, y: 440, width: 40, height: 100 };
+      goal = { x: 4000, y: 440, width: 40, height: 100 };
     }
 
     levelData.current = { platforms, coins, enemies, powerUps, goal, playerStart: { x: 50, y: 480 } };
@@ -133,6 +128,7 @@ const App: React.FC = () => {
 
     const p = player.current;
     const g = levelData.current;
+    const gravityValue = GRAVITY * (levelInfo?.gravity || 1.0);
 
     if (p.invincibilityFrames > 0) p.invincibilityFrames--;
 
@@ -152,12 +148,11 @@ const App: React.FC = () => {
       p.isJumping = true;
     }
 
-    // Physics
-    p.velocityY += GRAVITY * (levelInfo?.gravity || 1.0);
+    p.velocityY += gravityValue;
     p.x += p.velocityX;
     p.y += p.velocityY;
 
-    // Platform Collisions
+    // Colisões de Plataforma
     let onPlatform = false;
     g.platforms.forEach(plat => {
       if (plat.isDestroyed) return;
@@ -198,7 +193,7 @@ const App: React.FC = () => {
 
     if (!onPlatform && p.y + p.height < CANVAS_HEIGHT) p.isJumping = true;
 
-    // PowerUps
+    // PowerUps e Itens
     g.powerUps.forEach(pu => {
       if (!pu.collected && checkCollision(p, pu)) {
         pu.collected = true;
@@ -211,16 +206,55 @@ const App: React.FC = () => {
       }
     });
 
-    // Enemies
+    // Inimigos
     g.enemies.forEach(enemy => {
-      if (enemy.x < -500) return;
-      enemy.x += enemy.velocityX;
-      if (enemy.type === 'fly') enemy.y += Math.sin(Date.now() / 200) * 2;
-      if (Math.abs(enemy.x - enemy.startX) > enemy.range) enemy.velocityX *= -1;
+      if (enemy.x < -1000) return;
+      if (enemy.type === 'fly') {
+        enemy.y += Math.sin(Date.now() / 200) * 2;
+        enemy.x += enemy.velocityX;
+        if (Math.abs(enemy.x - enemy.startX) > enemy.range) enemy.velocityX *= -1;
+      } else if (enemy.type === 'stalker') {
+        const dist = Math.abs(p.x - enemy.x);
+        if (dist < 350) {
+          enemy.isAggro = true;
+          enemy.velocityX = p.x > enemy.x ? 2.5 : -2.5;
+        } else {
+          enemy.isAggro = false;
+          enemy.velocityX *= 0.95;
+        }
+        enemy.x += enemy.velocityX;
+      } else if (enemy.type === 'jumper') {
+        if (enemy.isGrounded && Math.random() < 0.02) {
+          enemy.velocityY = -10;
+          enemy.isGrounded = false;
+        }
+        enemy.x += enemy.velocityX;
+      } else {
+        enemy.x += enemy.velocityX;
+        if (enemy.range > 0 && Math.abs(enemy.x - enemy.startX) > enemy.range) enemy.velocityX *= -1;
+      }
+
+      // Gravidade para inimigos terrestres
+      if (enemy.type !== 'fly') {
+        enemy.velocityY = (enemy.velocityY || 0) + gravityValue;
+        enemy.y += enemy.velocityY;
+        enemy.isGrounded = false;
+        g.platforms.forEach(plat => {
+          if (!plat.isDestroyed && plat.type !== 'lava' && checkCollision(enemy, plat)) {
+            if (enemy.velocityY >= 0 && (enemy.y + enemy.height) - plat.y < 10) {
+              enemy.y = plat.y - enemy.height;
+              enemy.velocityY = 0;
+              enemy.isGrounded = true;
+            } else {
+              enemy.velocityX *= -1;
+            }
+          }
+        });
+      }
 
       if (checkCollision(p, enemy)) {
         if (p.velocityY > 0 && (p.y + p.height) - enemy.y < 15) {
-          enemy.x = -1000;
+          enemy.x = -2000;
           p.velocityY = -10;
           setScore(prev => prev + 150);
         } else if (p.invincibilityFrames === 0) {
@@ -260,88 +294,63 @@ const App: React.FC = () => {
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
 
-    // NO MORE GHOSTING: Solid background
-    const bgGrad = ctx.createLinearGradient(0, 0, 0, CANVAS_HEIGHT);
-    bgGrad.addColorStop(0, '#a5f3fc');
-    bgGrad.addColorStop(1, levelInfo.color);
-    ctx.fillStyle = bgGrad;
+    // Fundo sólido (Sem rastros/ghosting)
+    ctx.fillStyle = '#a5f3fc';
     ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
 
-    ctx.save();
-    ctx.translate(-Math.floor(cameraX.current), 0);
+    const camX = Math.floor(cameraX.current);
 
-    // Platforms
+    // Parallax
+    // Nuvens
+    ctx.fillStyle = 'rgba(255, 255, 255, 0.4)';
+    const cloudX = -(camX * 0.1) % 400;
+    for (let i = -1; i < (CANVAS_WIDTH / 400) + 1; i++) {
+      const x = i * 400 + cloudX;
+      ctx.beginPath(); ctx.arc(x + 50, 100, 30, 0, Math.PI * 2); ctx.fill();
+      ctx.beginPath(); ctx.arc(x + 80, 100, 40, 0, Math.PI * 2); ctx.fill();
+    }
+
+    // Montanhas
+    ctx.fillStyle = levelInfo.color + '44';
+    const hillX = -(camX * 0.3) % 600;
+    for (let i = -1; i < (CANVAS_WIDTH / 600) + 1; i++) {
+      const x = i * 600 + hillX;
+      ctx.beginPath(); ctx.moveTo(x, 600); ctx.lineTo(x + 300, 300); ctx.lineTo(x + 600, 600); ctx.fill();
+    }
+
+    ctx.save();
+    ctx.translate(-camX, 0);
+
+    // Mundo Principal
     levelData.current.platforms.forEach(plat => {
       if (plat.isDestroyed) return;
-      if (plat.type === 'lava') {
-        ctx.fillStyle = '#f97316';
-        ctx.fillRect(plat.x, plat.y, plat.width, plat.height);
+      ctx.fillStyle = plat.type === 'lava' ? '#f97316' : (plat.type === 'grass' ? '#16a34a' : '#713f12');
+      if (plat.type === 'breakable') ctx.fillStyle = '#78350f';
+      ctx.fillRect(plat.x, plat.y, plat.width, plat.height);
+    });
+
+    levelData.current.coins.forEach(c => {
+      if (!c.collected) {
         ctx.fillStyle = '#fbbf24';
-        ctx.fillRect(plat.x + (Date.now() % plat.width), plat.y, 20, 4);
-      } else if (plat.type === 'breakable') {
-        ctx.fillStyle = '#78350f';
-        ctx.fillRect(plat.x, plat.y, plat.width, plat.height);
-        ctx.strokeStyle = '#451a03';
-        ctx.strokeRect(plat.x + 4, plat.y + 4, plat.width - 8, plat.height - 8);
-      } else {
-        ctx.fillStyle = plat.type === 'grass' ? '#16a34a' : '#713f12';
-        ctx.fillRect(plat.x, plat.y, plat.width, plat.height);
-        ctx.fillStyle = 'rgba(0,0,0,0.1)';
-        ctx.fillRect(plat.x, plat.y, plat.width, 4);
+        ctx.beginPath(); ctx.arc(c.x + 10, c.y + 10, 8, 0, Math.PI * 2); ctx.fill();
       }
     });
 
-    // PowerUps
-    levelData.current.powerUps.forEach(pu => {
-      if (!pu.collected) {
-        ctx.fillStyle = '#ef4444';
-        ctx.beginPath();
-        ctx.arc(pu.x + 12, pu.y + 12, 12, 0, Math.PI * 2);
-        ctx.fill();
-        ctx.fillStyle = 'white';
-        ctx.fillRect(pu.x + 8, pu.y + 6, 8, 8);
-      }
+    levelData.current.enemies.forEach(e => {
+      if (e.x < -1000) return;
+      ctx.fillStyle = e.type === 'stalker' ? '#dc2626' : '#4c1d95';
+      ctx.fillRect(e.x, e.y, e.width, e.height);
     });
 
-    // Coins
-    levelData.current.coins.forEach(coin => {
-      if (!coin.collected) {
-        ctx.fillStyle = '#fbbf24';
-        ctx.beginPath();
-        ctx.ellipse(coin.x + 10, coin.y + 10, 8, 10, 0, 0, Math.PI * 2);
-        ctx.fill();
-      }
-    });
-
-    // Enemies
-    levelData.current.enemies.forEach(enemy => {
-      if (enemy.x < -500) return;
-      ctx.fillStyle = enemy.type === 'fly' ? '#db2777' : '#4c1d95';
-      ctx.fillRect(enemy.x, enemy.y, enemy.width, enemy.height);
-      ctx.fillStyle = 'white';
-      ctx.fillRect(enemy.x + 4, enemy.y + 4, 6, 6);
-      ctx.fillRect(enemy.x + enemy.width - 10, enemy.y + 4, 6, 6);
-    });
-
-    // Goal
     const goal = levelData.current.goal;
-    ctx.fillStyle = '#059669';
-    ctx.fillRect(goal.x, goal.y, 8, goal.height);
-    ctx.fillStyle = '#dc2626';
-    ctx.beginPath();
-    ctx.moveTo(goal.x, goal.y);
-    ctx.lineTo(goal.x + 40, goal.y + 20);
-    ctx.lineTo(goal.x, goal.y + 40);
-    ctx.fill();
+    ctx.fillStyle = '#059669'; ctx.fillRect(goal.x, goal.y, 10, goal.height);
 
-    // Player
     const p = player.current;
-    if (p.invincibilityFrames === 0 || p.invincibilityFrames % 10 < 5) {
-      ctx.fillStyle = p.isLarge ? '#ef4444' : '#dc2626';
+    if (p.invincibilityFrames % 10 < 5) {
+      ctx.fillStyle = '#dc2626';
       ctx.fillRect(p.x, p.y, p.width, p.height);
       ctx.fillStyle = 'white';
-      const eyeX = p.direction === 'right' ? p.x + p.width - 10 : p.x + 4;
-      ctx.fillRect(eyeX, p.y + 8, 6, 6);
+      ctx.fillRect(p.direction === 'right' ? p.x + 18 : p.x + 4, p.y + 8, 6, 6);
     }
 
     ctx.restore();
@@ -367,14 +376,14 @@ const App: React.FC = () => {
       {gameState === 'PLAYING' && (
         <div className="absolute top-0 left-0 right-0 p-6 flex justify-between items-start pointer-events-none">
           <div className="bg-black/60 backdrop-blur-md p-4 rounded-2xl text-white border border-white/10 shadow-xl">
-            <h2 className="text-xs font-black tracking-widest uppercase opacity-60 mb-2">Mundo {currentLevelIdx + 1}</h2>
-            <div className="flex gap-2">
+            <h2 className="text-xs font-black tracking-widest uppercase opacity-60 mb-1">{levelInfo?.name || `Mundo ${currentLevelIdx + 1}`}</h2>
+            <div className="flex gap-1 text-xl">
               {[...Array(3)].map((_, i) => (
-                <span key={i} className={`text-2xl transition-all duration-300 ${i < lives ? "scale-100 opacity-100" : "scale-75 opacity-20 grayscale"}`}>❤️</span>
+                <span key={i} className={i < lives ? "opacity-100" : "opacity-20"}>❤️</span>
               ))}
             </div>
           </div>
-          <div className="bg-black/60 backdrop-blur-md px-8 py-4 rounded-2xl text-white font-mono text-3xl font-bold border border-white/10 shadow-xl">
+          <div className="bg-black/60 backdrop-blur-md px-6 py-3 rounded-2xl text-white font-mono text-2xl font-bold border border-white/10 shadow-xl">
             {score.toString().padStart(6, '0')}
           </div>
         </div>
@@ -382,45 +391,38 @@ const App: React.FC = () => {
 
       {gameState === 'START' && (
         <div className="absolute inset-0 bg-slate-950/90 flex flex-col items-center justify-center p-8 text-center backdrop-blur-lg">
-          <h1 className="text-8xl font-black text-white mb-4 italic tracking-tighter drop-shadow-2xl">
+          <h1 className="text-7xl md:text-8xl font-black text-white mb-8 italic tracking-tighter">
             SUPER <span className="text-cyan-400">GEMINI</span> BROS
           </h1>
-          <p className="text-cyan-200/60 mb-12 font-mono uppercase tracking-[0.5em] text-sm">Powered by Artificial Intelligence</p>
-          <button onClick={() => initLevel(0)} className="group relative px-16 py-6 bg-cyan-600 text-white font-black text-3xl rounded-full transition-all hover:bg-cyan-500 hover:scale-110 active:scale-95 shadow-[0_0_50px_-10px_rgba(6,182,212,0.6)]">
-            NEW ADVENTURE
+          <button onClick={() => initLevel(0)} className="px-16 py-6 bg-cyan-600 text-white font-black text-3xl rounded-full transition-all hover:bg-cyan-500 hover:scale-110 active:scale-95 shadow-2xl">
+            JOGAR AGORA
           </button>
         </div>
       )}
 
       {gameState === 'GENERATING' && (
         <div className="absolute inset-0 bg-slate-950 flex flex-col items-center justify-center">
-          <div className="w-20 h-20 border-8 border-cyan-500/20 border-t-cyan-500 rounded-full animate-spin mb-8" />
-          <h2 className="text-cyan-400 font-black tracking-[0.6em] text-lg animate-pulse">GENERATING REALITY...</h2>
+          <div className="w-16 h-16 border-4 border-cyan-500/20 border-t-cyan-500 rounded-full animate-spin mb-4" />
+          <h2 className="text-cyan-400 font-bold tracking-widest animate-pulse">CRIANDO MUNDO...</h2>
         </div>
       )}
 
       {gameState === 'GAME_OVER' && (
-        <div className="absolute inset-0 bg-red-950/95 flex flex-col items-center justify-center backdrop-blur-xl">
-          <h2 className="text-9xl font-black text-white mb-8 italic tracking-tighter">GAME OVER</h2>
-          <button onClick={() => { setScore(0); setLives(3); initLevel(0); }} className="mt-4 px-16 py-5 bg-white text-red-950 font-black text-2xl rounded-full hover:scale-105 transition-transform shadow-2xl">
-            RETRY MISSION
+        <div className="absolute inset-0 bg-red-950/95 flex flex-col items-center justify-center">
+          <h2 className="text-8xl font-black text-white mb-8 italic">FIM DE JOGO</h2>
+          <button onClick={() => { setScore(0); setLives(3); initLevel(0); }} className="px-12 py-5 bg-white text-red-950 font-black text-xl rounded-full hover:scale-105 transition-transform">
+            TENTAR NOVAMENTE
           </button>
         </div>
       )}
 
       {gameState === 'WIN' && (
-        <div className="absolute inset-0 bg-emerald-950/95 flex flex-col items-center justify-center text-center backdrop-blur-xl">
-          <h2 className="text-8xl font-black text-white mb-4 italic">VICTORY!</h2>
-          <div className="text-emerald-400 font-mono text-3xl mb-12">FINAL SCORE: {score}</div>
-          {currentLevelIdx === 0 ? (
-             <button onClick={() => initLevel(1)} className="px-16 py-6 bg-white text-emerald-950 font-black text-2xl rounded-full shadow-2xl hover:scale-110 transition-transform">
-              CONTINUE TO WORLD 2
-            </button>
-          ) : (
-            <button onClick={() => setGameState('START')} className="px-16 py-6 bg-white text-emerald-950 font-black text-2xl rounded-full">
-              COMPLETE MISSION
-            </button>
-          )}
+        <div className="absolute inset-0 bg-emerald-950/95 flex flex-col items-center justify-center">
+          <h2 className="text-7xl font-black text-white mb-4 italic">VITÓRIA!</h2>
+          <div className="text-emerald-400 font-mono text-2xl mb-12">PONTOS: {score}</div>
+          <button onClick={() => currentLevelIdx === 0 ? initLevel(1) : setGameState('START')} className="px-12 py-5 bg-white text-emerald-950 font-black text-xl rounded-full">
+            {currentLevelIdx === 0 ? "PRÓXIMA FASE" : "MENU PRINCIPAL"}
+          </button>
         </div>
       )}
 
