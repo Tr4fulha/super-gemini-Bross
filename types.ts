@@ -22,10 +22,18 @@ export interface Player extends GameObject {
   score: number;
   lives: number;
   direction: 'left' | 'right';
+  isLarge: boolean;
+  invincibilityFrames: number;
 }
 
 export interface Platform extends GameObject {
-  type: 'solid' | 'grass' | 'lava';
+  type: 'solid' | 'grass' | 'lava' | 'breakable';
+  isDestroyed?: boolean;
+}
+
+export interface PowerUp extends GameObject {
+  type: 'mushroom';
+  collected: boolean;
 }
 
 export interface Enemy extends GameObject {
@@ -45,6 +53,7 @@ export interface LevelData {
   platforms: Platform[];
   enemies: Enemy[];
   coins: Coin[];
+  powerUps: PowerUp[];
   goal: Goal;
   playerStart: { x: number; y: number };
 }
