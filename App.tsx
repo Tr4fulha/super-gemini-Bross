@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { GameState, LevelInfo, LevelData, Player, Platform, Enemy, Coin, Goal, GameObject, PowerUp } from './types';
-import { CANVAS_WIDTH, CANVAS_HEIGHT, WALK_SPEED, JUMP_POWER, GRAVITY, FRICTION, PREDEFINED_LEVELS } from './constants';
+import { CANVAS_WIDTH, CANVAS_HEIGHT, WALK_SPEED, JUMP_POWER, GRAVITY, FALL_GRAVITY_MULT, FRICTION, PREDEFINED_LEVELS } from './constants';
 import MobileControls from './components/MobileControls';
 
 const App: React.FC = () => {
@@ -16,25 +16,22 @@ const App: React.FC = () => {
   const keysPressed = useRef<{ [key: string]: boolean }>({});
   
   const player = useRef<Player>({
-    x: 50, y: 500, width: 28, height: 32,
+    x: 50, y: 300, width: 24, height: 32,
     velocityX: 0, velocityY: 0,
     isJumping: false, score: 0, lives: 3,
     direction: 'right', isLarge: false, invincibilityFrames: 0
   });
   
   const levelData = useRef<LevelData>({
-    platforms: [],
-    enemies: [],
-    coins: [],
-    powerUps: [],
+    platforms: [], enemies: [], coins: [], powerUps: [],
     goal: { x: 0, y: 0, width: 40, height: 100 },
-    playerStart: { x: 50, y: 480 }
+    playerStart: { x: 50, y: 300 }
   });
 
   const cameraX = useRef(0);
 
   const initLevel = useCallback(async (levelIdx: number = 0) => {
-    // Agora usamos dados estáticos em vez de chamar a IA
+    keysPressed.current = {};
     const info = PREDEFINED_LEVELS[levelIdx] || PREDEFINED_LEVELS[0];
     setLevelInfo(info);
     setCurrentLevelIdx(levelIdx);
@@ -46,55 +43,68 @@ const App: React.FC = () => {
     let goal: Goal = { x: 0, y: 0, width: 40, height: 100 };
 
     if (levelIdx === 0) {
-      // Nível 1: Tutorial e Progressão Básica
+      // Nível 1: Floresta Esmeralda
       platforms = [
-        { x: 0, y: 540, width: 1400, height: 60, type: 'solid' }, // Chão Inicial
-        { x: 400, y: 410, width: 64, height: 32, type: 'breakable' },
-        { x: 464, y: 410, width: 64, height: 32, type: 'breakable' },
-        { x: 528, y: 410, width: 64, height: 32, type: 'breakable' },
-        { x: 700, y: 300, width: 200, height: 32, type: 'grass' }, // Plataforma Flutuante
-        { x: 1550, y: 540, width: 1200, height: 60, type: 'solid' }, // Chão Pós-Buraco
-        { x: 1400, y: 580, width: 150, height: 20, type: 'lava' },   // Pequeno perigo
-        { x: 1800, y: 420, width: 150, height: 32, type: 'breakable' },
-        { x: 2100, y: 320, width: 150, height: 32, type: 'grass' },
-        { x: 2800, y: 540, width: 1000, height: 60, type: 'solid' }, // Chão Final
+        { x: 0, y: 400, width: 1400, height: 50, type: 'solid' },
+        { x: 400, y: 280, width: 64, height: 32, type: 'breakable' },
+        { x: 464, y: 280, width: 64, height: 32, type: 'breakable' },
+        { x: 528, y: 280, width: 64, height: 32, type: 'breakable' },
+        { x: 700, y: 180, width: 200, height: 24, type: 'grass' },
+        { x: 1550, y: 400, width: 1200, height: 50, type: 'solid' },
+        { x: 1400, y: 430, width: 150, height: 20, type: 'lava' },
+        { x: 1800, y: 280, width: 150, height: 32, type: 'breakable' },
+        { x: 2800, y: 400, width: 1000, height: 50, type: 'solid' },
       ];
-      coins = [
-        { x: 415, y: 370, width: 20, height: 20, collected: false },
-        { x: 750, y: 260, width: 20, height: 20, collected: false },
-        { x: 1900, y: 380, width: 20, height: 20, collected: false },
-      ];
-      powerUps = [{ x: 480, y: 340, width: 24, height: 24, type: 'mushroom', collected: false }];
-      enemies = [
-        { x: 850, y: 510, width: 30, height: 30, velocityX: 2, velocityY: 0, type: 'patrol', range: 150, startX: 850 },
-        { x: 1700, y: 510, width: 30, height: 30, velocityX: 1.5, velocityY: 0, type: 'stalker', range: 0, startX: 1700 },
-        { x: 2300, y: 280, width: 30, height: 30, velocityX: 3, velocityY: 0, type: 'fly', range: 200, startX: 2300 },
-      ];
-      goal = { x: 3600, y: 440, width: 40, height: 100 };
-    } else {
-      // Nível 2: Mais perigos
+      coins = [{ x: 415, y: 240, width: 20, height: 20, collected: false }];
+      powerUps = [{ x: 480, y: 240, width: 24, height: 24, type: 'mushroom', collected: false }];
+      enemies = [{ x: 850, y: 370, width: 30, height: 30, velocityX: 2, velocityY: 0, type: 'patrol', range: 150, startX: 850 }];
+      goal = { x: 3600, y: 300, width: 40, height: 100 };
+    } else if (levelIdx === 1) {
+      // Nível 2: Cavernas de Lava - Ajustado para ser alcançável
       platforms = [
-        { x: 0, y: 540, width: 400, height: 60, type: 'solid' },
-        { x: 400, y: 580, width: 800, height: 20, type: 'lava' },
-        { x: 550, y: 440, width: 120, height: 24, type: 'grass' },
-        { x: 850, y: 380, width: 120, height: 24, type: 'grass' },
-        { x: 1200, y: 540, width: 1200, height: 60, type: 'solid' },
-        { x: 1500, y: 420, width: 192, height: 32, type: 'breakable' },
-        { x: 2400, y: 580, width: 1000, height: 20, type: 'lava' },
-        { x: 3400, y: 540, width: 800, height: 60, type: 'solid' },
+        { x: 0, y: 400, width: 400, height: 50, type: 'solid' },
+        { x: 400, y: 430, width: 900, height: 20, type: 'lava' },
+        // Plataforma móvel 1: Agora começa com velocidade negativa para vir buscar o jogador
+        { x: 480, y: 330, width: 100, height: 24, type: 'moving', velocityX: -2, velocityY: 0, range: 120, startX: 480, startY: 330 },
+        // Plataforma móvel 2: Ponte intermediária
+        { x: 800, y: 260, width: 100, height: 24, type: 'moving', velocityX: 2, velocityY: 0, range: 100, startX: 800, startY: 260 },
+        
+        { x: 1200, y: 400, width: 1200, height: 50, type: 'solid' },
+        { x: 2400, y: 430, width: 1100, height: 20, type: 'lava' },
+        // Plataforma móvel 3: Vertical ajustada
+        { x: 2550, y: 320, width: 100, height: 24, type: 'moving', velocityX: 0, velocityY: 2.5, range: 80, startX: 2550, startY: 320 },
+        // Plataforma móvel 4: Horizontal final
+        { x: 2900, y: 230, width: 100, height: 24, type: 'moving', velocityX: -2, velocityY: 0, range: 150, startX: 2900, startY: 230 },
+        
+        { x: 3500, y: 400, width: 800, height: 50, type: 'solid' },
       ];
-      coins = [{ x: 1550, y: 380, width: 20, height: 20, collected: false }];
-      powerUps = [{ x: 580, y: 380, width: 24, height: 24, type: 'mushroom', collected: false }];
-      enemies = [
-        { x: 1300, y: 510, width: 30, height: 30, velocityX: 4, velocityY: 0, type: 'patrol', range: 300, startX: 1300 },
-        { x: 1800, y: 300, width: 30, height: 30, velocityX: 2, velocityY: 0, type: 'fly', range: 200, startX: 1800 },
-        { x: 3500, y: 510, width: 30, height: 30, velocityX: 1.5, velocityY: 0, type: 'stalker', range: 0, startX: 3500 },
+      enemies = [{ x: 1500, y: 370, width: 30, height: 30, velocityX: 3, velocityY: 0, type: 'patrol', range: 400, startX: 1500 }];
+      goal = { x: 4100, y: 300, width: 40, height: 100 };
+    } else if (levelIdx === 2) {
+      // Nível 3: Abismo de Safira
+      platforms = [
+        { x: 0, y: 400, width: 600, height: 50, type: 'solid' },
+        { x: 650, y: 320, width: 100, height: 24, type: 'moving', velocityX: 0, velocityY: 2, range: 100, startX: 650, startY: 320 },
+        { x: 950, y: 220, width: 100, height: 24, type: 'moving', velocityX: 2, velocityY: 0, range: 150, startX: 950, startY: 220 },
+        { x: 1400, y: 400, width: 2000, height: 50, type: 'solid' },
       ];
-      goal = { x: 4000, y: 440, width: 40, height: 100 };
+      enemies = [{ x: 1800, y: 370, width: 30, height: 30, velocityX: 1.5, velocityY: 0, type: 'patrol', range: 300, startX: 1800 }];
+      goal = { x: 3200, y: 300, width: 40, height: 100 };
+    } else if (levelIdx === 3) {
+      // Nível 4: Fortaleza Espectral
+      platforms = [
+        { x: 0, y: 400, width: 800, height: 50, type: 'solid' },
+        { x: 800, y: 430, width: 600, height: 20, type: 'lava' },
+        { x: 850, y: 300, width: 100, height: 24, type: 'moving', velocityX: -2, velocityY: 0, range: 100, startX: 850, startY: 300 },
+        { x: 1150, y: 220, width: 100, height: 24, type: 'moving', velocityX: 2, velocityY: 0, range: 100, startX: 1150, startY: 220 },
+        { x: 1400, y: 400, width: 1500, height: 50, type: 'solid' },
+      ];
+      enemies = [{ x: 1600, y: 370, width: 30, height: 30, velocityX: 2.5, velocityY: 0, type: 'stalker', range: 0, startX: 1600 }];
+      goal = { x: 2800, y: 300, width: 40, height: 100 };
     }
 
-    levelData.current = { platforms, coins, enemies, powerUps, goal, playerStart: { x: 50, y: 480 } };
-    player.current = { ...player.current, x: 50, y: 480, velocityX: 0, velocityY: 0, isLarge: false, height: 32, invincibilityFrames: 0 };
+    levelData.current = { platforms, coins, enemies, powerUps, goal, playerStart: { x: 50, y: 350 } };
+    player.current = { ...player.current, x: 50, y: 350, velocityX: 0, velocityY: 0, isLarge: false, height: 32, invincibilityFrames: 0 };
     cameraX.current = 0;
     setGameState('PLAYING');
   }, []);
@@ -122,6 +132,7 @@ const App: React.FC = () => {
       p.height = 32;
       p.invincibilityFrames = 90;
       cameraX.current = 0;
+      keysPressed.current = {};
       return prev - 1;
     });
   };
@@ -135,27 +146,49 @@ const App: React.FC = () => {
 
     if (p.invincibilityFrames > 0) p.invincibilityFrames--;
 
-    // Inputs
+    // 1. ATUALIZAR PLATAFORMAS MÓVEIS
+    g.platforms.forEach(plat => {
+      if (plat.type === 'moving' && plat.startX !== undefined && plat.startY !== undefined) {
+        if (plat.velocityX) {
+          plat.x += plat.velocityX;
+          if (Math.abs(plat.x - plat.startX) > (plat.range || 0)) plat.velocityX *= -1;
+        }
+        if (plat.velocityY) {
+          plat.y += plat.velocityY;
+          if (Math.abs(plat.y - plat.startY) > (plat.range || 0)) plat.velocityY *= -1;
+        }
+      }
+    });
+
+    // 2. INPUT DO JOGADOR
     if (keysPressed.current['ArrowLeft'] || keysPressed.current['a']) {
-      p.velocityX = Math.max(p.velocityX - 0.8, -WALK_SPEED);
+      p.velocityX = Math.max(p.velocityX - 0.7, -WALK_SPEED);
       p.direction = 'left';
     } else if (keysPressed.current['ArrowRight'] || keysPressed.current['d']) {
-      p.velocityX = Math.min(p.velocityX + 0.8, WALK_SPEED);
+      p.velocityX = Math.min(p.velocityX + 0.7, WALK_SPEED);
       p.direction = 'right';
     } else {
       p.velocityX *= FRICTION;
+      if (Math.abs(p.velocityX) < 0.1) p.velocityX = 0;
     }
 
-    if ((keysPressed.current['ArrowUp'] || keysPressed.current['w'] || keysPressed.current[' ']) && !p.isJumping) {
+    const jumpHeld = !!(keysPressed.current['ArrowUp'] || keysPressed.current['w'] || keysPressed.current[' ']);
+    if (jumpHeld && !p.isJumping) {
       p.velocityY = JUMP_POWER;
       p.isJumping = true;
     }
+    if (!jumpHeld && p.velocityY < 0) {
+      p.velocityY += gravityValue * 2.5;
+    }
 
-    p.velocityY += gravityValue;
+    const currentGravity = p.velocityY > 0 ? gravityValue * FALL_GRAVITY_MULT : gravityValue;
+    p.velocityY += currentGravity;
+    if (p.velocityY > 15) p.velocityY = 15;
+
     p.x += p.velocityX;
     p.y += p.velocityY;
 
-    // Colisões de Plataforma
+    // 3. COLISÕES DE PLATAFORMA
     let onPlatform = false;
     g.platforms.forEach(plat => {
       if (plat.isDestroyed) return;
@@ -177,9 +210,14 @@ const App: React.FC = () => {
           p.velocityY = 0;
           p.isJumping = false;
           onPlatform = true;
+
+          // EFEITO ESTEIRA: Mover jogador com a plataforma
+          if (plat.type === 'moving' && plat.velocityX) {
+            p.x += plat.velocityX;
+          }
         } else if (minOverlap === overlapBottom && p.velocityY <= 0) {
           p.y = plat.y + plat.height;
-          p.velocityY = 0;
+          p.velocityY = 0.5;
           if (plat.type === 'breakable' && p.isLarge) {
             plat.isDestroyed = true;
             setScore(s => s + 200);
@@ -194,9 +232,9 @@ const App: React.FC = () => {
       }
     });
 
-    if (!onPlatform && p.y + p.height < CANVAS_HEIGHT) p.isJumping = true;
+    if (!onPlatform && p.y + p.height < CANVAS_HEIGHT + 100) p.isJumping = true;
 
-    // PowerUps e Itens
+    // 4. POWERUPS, INIMIGOS E MOEDAS
     g.powerUps.forEach(pu => {
       if (!pu.collected && checkCollision(p, pu)) {
         pu.collected = true;
@@ -209,45 +247,30 @@ const App: React.FC = () => {
       }
     });
 
-    // Inimigos
     g.enemies.forEach(enemy => {
       if (enemy.x < -1000) return;
       if (enemy.type === 'fly') {
-        enemy.y += Math.sin(Date.now() / 200) * 2;
+        enemy.y += Math.sin(Date.now() / 250) * 1.5;
         enemy.x += enemy.velocityX;
         if (Math.abs(enemy.x - enemy.startX) > enemy.range) enemy.velocityX *= -1;
       } else if (enemy.type === 'stalker') {
         const dist = Math.abs(p.x - enemy.x);
-        if (dist < 350) {
-          enemy.isAggro = true;
-          enemy.velocityX = p.x > enemy.x ? 2.5 : -2.5;
-        } else {
-          enemy.isAggro = false;
-          enemy.velocityX *= 0.95;
-        }
-        enemy.x += enemy.velocityX;
-      } else if (enemy.type === 'jumper') {
-        if (enemy.isGrounded && Math.random() < 0.02) {
-          enemy.velocityY = -10;
-          enemy.isGrounded = false;
-        }
+        if (dist < 250) enemy.velocityX = p.x > enemy.x ? 2.0 : -2.0;
+        else enemy.velocityX *= 0.95;
         enemy.x += enemy.velocityX;
       } else {
         enemy.x += enemy.velocityX;
         if (enemy.range > 0 && Math.abs(enemy.x - enemy.startX) > enemy.range) enemy.velocityX *= -1;
       }
 
-      // Gravidade para inimigos terrestres
       if (enemy.type !== 'fly') {
         enemy.velocityY = (enemy.velocityY || 0) + gravityValue;
         enemy.y += enemy.velocityY;
-        enemy.isGrounded = false;
         g.platforms.forEach(plat => {
           if (!plat.isDestroyed && plat.type !== 'lava' && checkCollision(enemy, plat)) {
-            if (enemy.velocityY >= 0 && (enemy.y + enemy.height) - plat.y < 10) {
+            if (enemy.velocityY >= 0 && (enemy.y + enemy.height) - plat.y < 12) {
               enemy.y = plat.y - enemy.height;
               enemy.velocityY = 0;
-              enemy.isGrounded = true;
             } else {
               enemy.velocityX *= -1;
             }
@@ -258,7 +281,7 @@ const App: React.FC = () => {
       if (checkCollision(p, enemy)) {
         if (p.velocityY > 0 && (p.y + p.height) - enemy.y < 15) {
           enemy.x = -2000;
-          p.velocityY = -10;
+          p.velocityY = JUMP_POWER * 0.7;
           setScore(prev => prev + 150);
         } else if (p.invincibilityFrames === 0) {
           if (p.isLarge) {
@@ -266,9 +289,7 @@ const App: React.FC = () => {
             p.height = 32;
             p.y += 16;
             p.invincibilityFrames = 90;
-          } else {
-            resetAfterDeath();
-          }
+          } else resetAfterDeath();
         }
       }
     });
@@ -283,7 +304,7 @@ const App: React.FC = () => {
     if (checkCollision(p, g.goal)) setGameState('WIN');
     if (p.y > CANVAS_HEIGHT + 100) resetAfterDeath();
 
-    const targetCameraX = p.x - CANVAS_WIDTH / 3;
+    const targetCameraX = p.x - CANVAS_WIDTH / 2.5;
     cameraX.current += (targetCameraX - cameraX.current) * 0.1;
     cameraX.current = Math.max(0, cameraX.current);
 
@@ -297,63 +318,67 @@ const App: React.FC = () => {
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
 
-    // Fundo sólido
-    ctx.fillStyle = '#a5f3fc';
+    ctx.fillStyle = levelInfo.color === '#3b82f6' ? '#082f49' : '#bae6fd'; 
     ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
 
     const camX = Math.floor(cameraX.current);
 
-    // Parallax
-    // Nuvens
-    ctx.fillStyle = 'rgba(255, 255, 255, 0.4)';
+    ctx.fillStyle = 'rgba(255, 255, 255, 0.5)';
     const cloudX = -(camX * 0.1) % 400;
     for (let i = -1; i < (CANVAS_WIDTH / 400) + 2; i++) {
       const x = i * 400 + cloudX;
-      ctx.beginPath(); ctx.arc(x + 50, 100, 30, 0, Math.PI * 2); ctx.fill();
-      ctx.beginPath(); ctx.arc(x + 80, 100, 40, 0, Math.PI * 2); ctx.fill();
+      ctx.beginPath(); ctx.arc(x + 50, 60, 20, 0, Math.PI * 2); ctx.fill();
+      ctx.beginPath(); ctx.arc(x + 80, 60, 30, 0, Math.PI * 2); ctx.fill();
     }
 
-    // Montanhas
-    ctx.fillStyle = levelInfo.color + '44';
-    const hillX = -(camX * 0.3) % 600;
+    ctx.fillStyle = levelInfo.color + '33';
+    const hillX = -(camX * 0.25) % 600;
     for (let i = -1; i < (CANVAS_WIDTH / 600) + 2; i++) {
       const x = i * 600 + hillX;
-      ctx.beginPath(); ctx.moveTo(x, 600); ctx.lineTo(x + 300, 300); ctx.lineTo(x + 600, 600); ctx.fill();
+      ctx.beginPath(); ctx.moveTo(x, 450); ctx.lineTo(x + 300, 200); ctx.lineTo(x + 600, 450); ctx.fill();
     }
 
     ctx.save();
     ctx.translate(-camX, 0);
 
-    // Mundo Principal
     levelData.current.platforms.forEach(plat => {
       if (plat.isDestroyed) return;
-      ctx.fillStyle = plat.type === 'lava' ? '#f97316' : (plat.type === 'grass' ? '#16a34a' : '#713f12');
+      ctx.fillStyle = plat.type === 'lava' ? '#f97316' : (plat.type === 'grass' || plat.type === 'moving' ? '#16a34a' : '#713f12');
       if (plat.type === 'breakable') ctx.fillStyle = '#78350f';
+      if (plat.type === 'moving') ctx.fillStyle = '#22c55e'; // Verde mais brilhante para móveis
+      
       ctx.fillRect(plat.x, plat.y, plat.width, plat.height);
+      if (plat.type !== 'lava') {
+        ctx.fillStyle = 'rgba(255,255,255,0.1)';
+        ctx.fillRect(plat.x, plat.y, plat.width, 4);
+      }
     });
 
     levelData.current.coins.forEach(c => {
       if (!c.collected) {
         ctx.fillStyle = '#fbbf24';
         ctx.beginPath(); ctx.arc(c.x + 10, c.y + 10, 8, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = '#fef3c7'; ctx.fillRect(c.x + 8, c.y + 6, 2, 8);
       }
     });
 
     levelData.current.enemies.forEach(e => {
       if (e.x < -1000) return;
-      ctx.fillStyle = e.type === 'stalker' ? '#dc2626' : '#4c1d95';
+      ctx.fillStyle = e.type === 'stalker' ? '#dc2626' : (e.type === 'fly' ? '#db2777' : '#4c1d95');
       ctx.fillRect(e.x, e.y, e.width, e.height);
+      ctx.fillStyle = 'white'; ctx.fillRect(e.velocityX > 0 ? e.x + 20 : e.x + 4, e.y + 4, 6, 6);
     });
 
     const goal = levelData.current.goal;
-    ctx.fillStyle = '#059669'; ctx.fillRect(goal.x, goal.y, 10, goal.height);
+    ctx.fillStyle = '#059669'; ctx.fillRect(goal.x, goal.y, 8, goal.height);
+    ctx.fillStyle = '#10b981'; ctx.fillRect(goal.x - 4, goal.y, 16, 12);
 
     const p = player.current;
     if (p.invincibilityFrames % 10 < 5) {
-      ctx.fillStyle = '#dc2626';
+      ctx.fillStyle = p.isLarge ? '#ef4444' : '#dc2626';
       ctx.fillRect(p.x, p.y, p.width, p.height);
-      ctx.fillStyle = 'white';
-      ctx.fillRect(p.direction === 'right' ? p.x + 18 : p.x + 4, p.y + 8, 6, 6);
+      ctx.fillStyle = 'white'; ctx.fillRect(p.direction === 'right' ? p.x + 16 : p.x + 2, p.y + 6, 6, 6);
+      ctx.fillStyle = '#991b1b'; ctx.fillRect(p.x - 2, p.y, p.width + 4, 6);
     }
 
     ctx.restore();
@@ -362,67 +387,60 @@ const App: React.FC = () => {
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => handleKeyPress(e.key, true);
     const handleKeyUp = (e: KeyboardEvent) => handleKeyPress(e.key, false);
+    const handleBlur = () => { keysPressed.current = {}; };
     window.addEventListener('keydown', handleKeyDown);
     window.addEventListener('keyup', handleKeyUp);
+    window.addEventListener('blur', handleBlur);
     requestRef.current = requestAnimationFrame(update);
     return () => {
       window.removeEventListener('keydown', handleKeyDown);
       window.removeEventListener('keyup', handleKeyUp);
+      window.removeEventListener('blur', handleBlur);
       if (requestRef.current) cancelAnimationFrame(requestRef.current);
     };
   }, [update]);
 
-  return (
-    <div className="relative w-full h-screen bg-slate-950 flex items-center justify-center overflow-hidden">
-      <canvas ref={canvasRef} width={CANVAS_WIDTH} height={CANVAS_HEIGHT} className="max-w-full max-h-full bg-white shadow-2xl rounded" />
+  const hasNextLevel = currentLevelIdx < PREDEFINED_LEVELS.length - 1;
 
-      {gameState === 'PLAYING' && (
-        <div className="absolute top-0 left-0 right-0 p-6 flex justify-between items-start pointer-events-none">
-          <div className="bg-black/60 backdrop-blur-md p-4 rounded-2xl text-white border border-white/10 shadow-xl">
-            <h2 className="text-xs font-black tracking-widest uppercase opacity-60 mb-1">{levelInfo?.name || `Mundo ${currentLevelIdx + 1}`}</h2>
-            <div className="flex gap-1 text-xl">
-              {[...Array(3)].map((_, i) => (
-                <span key={i} className={i < lives ? "opacity-100" : "opacity-20"}>❤️</span>
-              ))}
+  return (
+    <div className="relative w-full h-screen bg-black flex items-center justify-center overflow-hidden touch-none">
+      <div className="relative w-full h-full flex items-center justify-center p-0 m-0 overflow-hidden">
+        <canvas ref={canvasRef} width={CANVAS_WIDTH} height={CANVAS_HEIGHT} className="max-w-full max-h-full object-contain shadow-2xl bg-sky-200" style={{ width: '100vw', height: '100vh', objectFit: 'contain' }} />
+        {gameState === 'PLAYING' && (
+          <div className="absolute top-0 left-0 right-0 p-4 md:p-8 flex justify-between items-start pointer-events-none">
+            <div className="bg-black/40 backdrop-blur-md p-3 rounded-xl text-white border border-white/10">
+              <h2 className="text-[10px] font-black uppercase tracking-tighter opacity-50">{levelInfo?.name}</h2>
+              <div className="flex gap-1 text-lg">
+                {[...Array(3)].map((_, i) => (<span key={i} className={i < lives ? "opacity-100" : "opacity-20"}>❤️</span>))}
+              </div>
+            </div>
+            <div className="bg-black/40 backdrop-blur-md px-5 py-2 rounded-xl text-white font-mono text-xl font-bold border border-white/10">
+              {score.toString().padStart(6, '0')}
             </div>
           </div>
-          <div className="bg-black/60 backdrop-blur-md px-6 py-3 rounded-2xl text-white font-mono text-2xl font-bold border border-white/10 shadow-xl">
-            {score.toString().padStart(6, '0')}
+        )}
+        {gameState === 'START' && (
+          <div className="absolute inset-0 bg-slate-950/80 flex flex-col items-center justify-center p-8 text-center backdrop-blur-sm">
+            <h1 className="text-5xl md:text-8xl font-black text-white mb-8 italic tracking-tighter drop-shadow-lg">SUPER <span className="text-cyan-400">GEMINI</span> BROS</h1>
+            <button onClick={() => initLevel(0)} className="px-12 py-5 bg-cyan-600 text-white font-black text-2xl rounded-full transition-all hover:bg-cyan-500 hover:scale-110 active:scale-95 shadow-xl">JOGAR AGORA</button>
+            <p className="mt-6 text-white/40 text-xs font-mono uppercase tracking-[0.3em]">Use WASD ou Setas para mover</p>
           </div>
-        </div>
-      )}
-
-      {gameState === 'START' && (
-        <div className="absolute inset-0 bg-slate-950/90 flex flex-col items-center justify-center p-8 text-center backdrop-blur-lg">
-          <h1 className="text-7xl md:text-8xl font-black text-white mb-8 italic tracking-tighter">
-            SUPER <span className="text-cyan-400">GEMINI</span> BROS
-          </h1>
-          <button onClick={() => initLevel(0)} className="px-16 py-6 bg-cyan-600 text-white font-black text-3xl rounded-full transition-all hover:bg-cyan-500 hover:scale-110 active:scale-95 shadow-2xl">
-            JOGAR AGORA
-          </button>
-        </div>
-      )}
-
-      {gameState === 'GAME_OVER' && (
-        <div className="absolute inset-0 bg-red-950/95 flex flex-col items-center justify-center">
-          <h2 className="text-8xl font-black text-white mb-8 italic">FIM DE JOGO</h2>
-          <button onClick={() => { setScore(0); setLives(3); initLevel(0); }} className="px-12 py-5 bg-white text-red-950 font-black text-xl rounded-full hover:scale-105 transition-transform">
-            TENTAR NOVAMENTE
-          </button>
-        </div>
-      )}
-
-      {gameState === 'WIN' && (
-        <div className="absolute inset-0 bg-emerald-950/95 flex flex-col items-center justify-center">
-          <h2 className="text-7xl font-black text-white mb-4 italic">VITÓRIA!</h2>
-          <div className="text-emerald-400 font-mono text-2xl mb-12">PONTOS: {score}</div>
-          <button onClick={() => currentLevelIdx === 0 ? initLevel(1) : setGameState('START')} className="px-12 py-5 bg-white text-emerald-950 font-black text-xl rounded-full">
-            {currentLevelIdx === 0 ? "PRÓXIMA FASE" : "MENU PRINCIPAL"}
-          </button>
-        </div>
-      )}
-
-      {gameState === 'PLAYING' && <MobileControls onPress={handleKeyPress} />}
+        )}
+        {gameState === 'GAME_OVER' && (
+          <div className="absolute inset-0 bg-red-950/90 flex flex-col items-center justify-center p-6 text-center">
+            <h2 className="text-6xl md:text-8xl font-black text-white mb-8 italic">FIM DE JOGO</h2>
+            <button onClick={() => { setScore(0); setLives(3); initLevel(currentLevelIdx); }} className="px-12 py-4 bg-white text-red-950 font-black text-xl rounded-full hover:scale-105">TENTAR NOVAMENTE</button>
+          </div>
+        )}
+        {gameState === 'WIN' && (
+          <div className="absolute inset-0 bg-emerald-950/90 flex flex-col items-center justify-center p-6 text-center">
+            <h2 className="text-6xl md:text-7xl font-black text-white mb-4 italic">VITÓRIA!</h2>
+            <div className="text-emerald-400 font-mono text-2xl mb-12">PONTOS: {score}</div>
+            <button onClick={() => hasNextLevel ? initLevel(currentLevelIdx + 1) : setGameState('START')} className="px-12 py-4 bg-white text-emerald-950 font-black text-xl rounded-full">{hasNextLevel ? "PRÓXIMA FASE" : "MENU PRINCIPAL"}</button>
+          </div>
+        )}
+        {gameState === 'PLAYING' && <MobileControls onPress={handleKeyPress} />}
+      </div>
     </div>
   );
 };

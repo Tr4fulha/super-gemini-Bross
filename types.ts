@@ -27,8 +27,13 @@ export interface Player extends GameObject {
 }
 
 export interface Platform extends GameObject {
-  type: 'solid' | 'grass' | 'lava' | 'breakable';
+  type: 'solid' | 'grass' | 'lava' | 'breakable' | 'moving';
   isDestroyed?: boolean;
+  velocityX?: number;
+  velocityY?: number;
+  range?: number;
+  startX?: number;
+  startY?: number;
 }
 
 export interface PowerUp extends GameObject {
