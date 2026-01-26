@@ -6,9 +6,24 @@ export const FRICTION = 0.8;
 export const CANVAS_WIDTH = 800;
 export const CANVAS_HEIGHT = 600;
 
-export const THEMES = [
-  { name: 'Emerald Forest', color: '#10b981', background: '#ecfdf5' },
-  { name: 'Volcano Core', color: '#ef4444', background: '#fef2f2' },
-  { name: 'Midnight Clouds', color: '#6366f1', background: '#eef2ff' },
-  { name: 'Golden Desert', color: '#f59e0b', background: '#fffbeb' },
+export interface LevelConfig {
+  name: string;
+  theme: string;
+  color: string;
+  gravity: number;
+}
+
+export const PREDEFINED_LEVELS: LevelConfig[] = [
+  {
+    name: "Floresta Esmeralda",
+    theme: "Um início vibrante em uma floresta densa.",
+    color: "#10b981",
+    gravity: 0.8
+  },
+  {
+    name: "Cavernas de Lava",
+    theme: "O calor aumenta nas profundezas da terra.",
+    color: "#ef4444",
+    gravity: 1.0
+  }
 ];

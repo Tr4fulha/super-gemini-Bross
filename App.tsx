@@ -1,8 +1,7 @@
 
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { GameState, LevelInfo, LevelData, Player, Platform, Enemy, Coin, Goal, GameObject, PowerUp } from './types';
-import { CANVAS_WIDTH, CANVAS_HEIGHT, WALK_SPEED, JUMP_POWER, GRAVITY, FRICTION } from './constants';
-import { generateLevelTheme } from './services/geminiService';
+import { CANVAS_WIDTH, CANVAS_HEIGHT, WALK_SPEED, JUMP_POWER, GRAVITY, FRICTION, PREDEFINED_LEVELS } from './constants';
 import MobileControls from './components/MobileControls';
 
 const App: React.FC = () => {
@@ -35,12 +34,11 @@ const App: React.FC = () => {
   const cameraX = useRef(0);
 
   const initLevel = useCallback(async (levelIdx: number = 0) => {
-    setGameState('GENERATING');
-    const info = await generateLevelTheme();
+    // Agora usamos dados estáticos em vez de chamar a IA
+    const info = PREDEFINED_LEVELS[levelIdx] || PREDEFINED_LEVELS[0];
     setLevelInfo(info);
     setCurrentLevelIdx(levelIdx);
 
-    // Estrutura base de níveis (pode ser expandida via Gemini no futuro)
     let platforms: Platform[] = [];
     let coins: Coin[] = [];
     let enemies: Enemy[] = [];
@@ -48,28 +46,33 @@ const App: React.FC = () => {
     let goal: Goal = { x: 0, y: 0, width: 40, height: 100 };
 
     if (levelIdx === 0) {
+      // Nível 1: Tutorial e Progressão Básica
       platforms = [
-        { x: 0, y: 540, width: 1200, height: 60, type: 'solid' },
+        { x: 0, y: 540, width: 1400, height: 60, type: 'solid' }, // Chão Inicial
         { x: 400, y: 410, width: 64, height: 32, type: 'breakable' },
         { x: 464, y: 410, width: 64, height: 32, type: 'breakable' },
         { x: 528, y: 410, width: 64, height: 32, type: 'breakable' },
-        { x: 1300, y: 540, width: 1000, height: 60, type: 'solid' },
-        { x: 1450, y: 380, width: 120, height: 24, type: 'grass' },
-        { x: 1550, y: 150, width: 300, height: 24, type: 'grass' },
-        { x: 2300, y: 540, width: 1500, height: 60, type: 'solid' },
+        { x: 700, y: 300, width: 200, height: 32, type: 'grass' }, // Plataforma Flutuante
+        { x: 1550, y: 540, width: 1200, height: 60, type: 'solid' }, // Chão Pós-Buraco
+        { x: 1400, y: 580, width: 150, height: 20, type: 'lava' },   // Pequeno perigo
+        { x: 1800, y: 420, width: 150, height: 32, type: 'breakable' },
+        { x: 2100, y: 320, width: 150, height: 32, type: 'grass' },
+        { x: 2800, y: 540, width: 1000, height: 60, type: 'solid' }, // Chão Final
       ];
       coins = [
         { x: 415, y: 370, width: 20, height: 20, collected: false },
-        { x: 1600, y: 100, width: 20, height: 20, collected: false },
+        { x: 750, y: 260, width: 20, height: 20, collected: false },
+        { x: 1900, y: 380, width: 20, height: 20, collected: false },
       ];
       powerUps = [{ x: 480, y: 340, width: 24, height: 24, type: 'mushroom', collected: false }];
       enemies = [
-        { x: 800, y: 510, width: 30, height: 30, velocityX: 2, velocityY: 0, type: 'patrol', range: 200, startX: 800 },
-        { x: 1600, y: 510, width: 30, height: 30, velocityX: 1.5, velocityY: 0, type: 'stalker', range: 0, startX: 1600 },
-        { x: 2600, y: 510, width: 30, height: 30, velocityX: 2, velocityY: 0, type: 'jumper', range: 200, startX: 2600 },
+        { x: 850, y: 510, width: 30, height: 30, velocityX: 2, velocityY: 0, type: 'patrol', range: 150, startX: 850 },
+        { x: 1700, y: 510, width: 30, height: 30, velocityX: 1.5, velocityY: 0, type: 'stalker', range: 0, startX: 1700 },
+        { x: 2300, y: 280, width: 30, height: 30, velocityX: 3, velocityY: 0, type: 'fly', range: 200, startX: 2300 },
       ];
       goal = { x: 3600, y: 440, width: 40, height: 100 };
     } else {
+      // Nível 2: Mais perigos
       platforms = [
         { x: 0, y: 540, width: 400, height: 60, type: 'solid' },
         { x: 400, y: 580, width: 800, height: 20, type: 'lava' },
@@ -286,7 +289,7 @@ const App: React.FC = () => {
 
     render();
     requestRef.current = requestAnimationFrame(update);
-  }, [gameState, levelInfo]);
+  }, [gameState, levelInfo, initLevel]);
 
   const render = () => {
     const canvas = canvasRef.current;
@@ -294,7 +297,7 @@ const App: React.FC = () => {
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
 
-    // Fundo sólido (Sem rastros/ghosting)
+    // Fundo sólido
     ctx.fillStyle = '#a5f3fc';
     ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
 
@@ -304,7 +307,7 @@ const App: React.FC = () => {
     // Nuvens
     ctx.fillStyle = 'rgba(255, 255, 255, 0.4)';
     const cloudX = -(camX * 0.1) % 400;
-    for (let i = -1; i < (CANVAS_WIDTH / 400) + 1; i++) {
+    for (let i = -1; i < (CANVAS_WIDTH / 400) + 2; i++) {
       const x = i * 400 + cloudX;
       ctx.beginPath(); ctx.arc(x + 50, 100, 30, 0, Math.PI * 2); ctx.fill();
       ctx.beginPath(); ctx.arc(x + 80, 100, 40, 0, Math.PI * 2); ctx.fill();
@@ -313,7 +316,7 @@ const App: React.FC = () => {
     // Montanhas
     ctx.fillStyle = levelInfo.color + '44';
     const hillX = -(camX * 0.3) % 600;
-    for (let i = -1; i < (CANVAS_WIDTH / 600) + 1; i++) {
+    for (let i = -1; i < (CANVAS_WIDTH / 600) + 2; i++) {
       const x = i * 600 + hillX;
       ctx.beginPath(); ctx.moveTo(x, 600); ctx.lineTo(x + 300, 300); ctx.lineTo(x + 600, 600); ctx.fill();
     }
@@ -397,13 +400,6 @@ const App: React.FC = () => {
           <button onClick={() => initLevel(0)} className="px-16 py-6 bg-cyan-600 text-white font-black text-3xl rounded-full transition-all hover:bg-cyan-500 hover:scale-110 active:scale-95 shadow-2xl">
             JOGAR AGORA
           </button>
-        </div>
-      )}
-
-      {gameState === 'GENERATING' && (
-        <div className="absolute inset-0 bg-slate-950 flex flex-col items-center justify-center">
-          <div className="w-16 h-16 border-4 border-cyan-500/20 border-t-cyan-500 rounded-full animate-spin mb-4" />
-          <h2 className="text-cyan-400 font-bold tracking-widest animate-pulse">CRIANDO MUNDO...</h2>
         </div>
       )}
 
