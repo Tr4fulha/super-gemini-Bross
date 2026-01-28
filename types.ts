@@ -26,7 +26,6 @@ export interface Player extends GameObject {
   direction: 'left' | 'right';
   isLarge: boolean;
   invincibilityFrames: number;
-  // Shooter specific
   powerLevel: number;
   shieldFrames: number;
   maxShieldFrames: number;
@@ -36,7 +35,6 @@ export interface Player extends GameObject {
   tripleShotFrames: number;
   maxTripleShotFrames: number;
   tilt: number;
-  // New Mechanics
   energy: number;
   maxEnergy: number;
   dashCooldown: number;
@@ -77,6 +75,8 @@ export interface Enemy extends GameObject {
   targetY?: number;
   sineOffset?: number;
   hitFlash?: number;
+  rotation?: number;
+  points?: {x: number, y: number}[]; // Formato irregular do asteroide
 }
 
 export interface Coin extends GameObject {
@@ -106,6 +106,24 @@ export interface Star {
   y: number;
   size: number;
   speed: number;
+  opacity: number;
+}
+
+export interface Nebula {
+  x: number;
+  y: number;
+  size: number;
+  color: string;
+  speed: number;
+}
+
+export interface Planet {
+  x: number;
+  y: number;
+  size: number;
+  color: string;
+  speed: number;
+  type: number;
 }
 
 export interface Particle {
@@ -117,4 +135,5 @@ export interface Particle {
   color: string;
   size: number;
   gravity?: number;
+  decay?: number;
 }
