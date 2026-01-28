@@ -27,7 +27,7 @@ const App: React.FC = () => {
   const MAX_PARTICLES = 100; 
 
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const requestRef = useRef<number>(null);
+  const requestRef = useRef<number | null>(null);
   const keysPressed = useRef<{ [key: string]: boolean }>({});
   const audioCtx = useRef<AudioContext | null>(null);
   
@@ -387,7 +387,7 @@ const App: React.FC = () => {
   }, [gameState, levelInfo, dims.h, dims.w]);
 
   const renderShooter = () => {
-    const ctx = canvasRef.current?.getContext('2d'); if (!ctx) return;
+    const ctx = canvasRef.current?.getContext('2d') as any; if (!ctx) return;
     ctx.save(); if (screenShake.current > 0.1) ctx.translate((Math.random()-0.5)*screenShake.current, (Math.random()-0.5)*screenShake.current);
     ctx.fillStyle = '#020617'; ctx.fillRect(0, 0, dims.w, dims.h);
     stars.current.forEach(s => { ctx.fillStyle = 'rgba(255, 255, 255, 0.45)'; ctx.fillRect(s.x, s.y, s.size, s.size); });
@@ -398,7 +398,7 @@ const App: React.FC = () => {
     const p = player.current; 
     if (p.invincibilityFrames % 10 < 5 || gameState === 'GENERATING') {
       ctx.save(); ctx.translate(p.x + p.width / 2, p.y + p.height / 2); ctx.rotate(p.tilt); ctx.translate(-(p.x + p.width / 2), -(p.y + p.height / 2));
-      const skinColors = { CORE: '#38bdf8', PHANTOM: '#a21caf', STRIKER: '#ef4444' };
+      const skinColors: Record<ShooterSkin, string> = { CORE: '#38bdf8', PHANTOM: '#a21caf', STRIKER: '#ef4444' };
       ctx.fillStyle = gameState === 'GENERATING' ? '#475569' : skinColors[selectedSkin]; 
       ctx.beginPath();
       if (selectedSkin === 'PHANTOM') { ctx.moveTo(p.x + p.width/2, p.y); ctx.lineTo(p.x + p.width, p.y + p.height * 0.7); ctx.lineTo(p.x + p.width * 0.7, p.y + p.height); ctx.lineTo(p.x + p.width * 0.3, p.y + p.height); ctx.lineTo(p.x, p.y + p.height * 0.7); }
@@ -428,15 +428,19 @@ const App: React.FC = () => {
   };
 
   const renderPlatformer = () => {
-    const ctx = canvasRef.current?.getContext('2d'); if (!ctx) return;
+    const ctx = canvasRef.current?.getContext('2d') as any; if (!ctx) return;
     ctx.save(); if (screenShake.current > 0.1) ctx.translate((Math.random()-0.5)*screenShake.current, (Math.random()-0.5)*screenShake.current);
     ctx.fillStyle = levelInfo?.color || '#0f172a'; ctx.fillRect(0, 0, dims.w, dims.h);
     ctx.translate(-Math.floor(cameraX.current), 0);
     levelData.current.platforms.forEach(pl => { ctx.fillStyle = pl.type === 'grass' ? '#065f46' : '#472111'; ctx.fillRect(pl.x, pl.y, pl.width, pl.height); ctx.strokeStyle = '#271108'; ctx.strokeRect(pl.x, pl.y, pl.width, pl.height); if (pl.type === 'grass') { ctx.fillStyle = '#10b981'; ctx.fillRect(pl.x, pl.y, pl.width, 5); } });
-    levelData.current.enemies.forEach(e => { ctx.fillStyle = '#4c1d95'; ctx.beginPath(); ctx.roundRect(e.x, e.y, e.width, e.height, 8); ctx.fill(); });
+    levelData.current.enemies.forEach(e => { ctx.fillStyle = '#4c1d95'; ctx.beginPath(); 
+      if (ctx.roundRect) ctx.roundRect(e.x, e.y, e.width, e.height, 8); 
+      else ctx.rect(e.x, e.y, e.width, e.height);
+      ctx.fill(); 
+    });
     levelData.current.powerUps.forEach(pu => drawPowerUpIcon(ctx, pu.x, pu.y, pu.width, pu.type));
     const p = player.current; 
-    if (p.invincibilityFrames % 10 < 5 || gameState === 'GENERATING') { ctx.save(); ctx.translate(p.x + p.width / 2, p.y + p.height / 2); ctx.rotate(p.tilt); ctx.translate(-(p.x + p.width / 2), -(p.y + p.height / 2)); ctx.fillStyle = gameState === 'GENERATING' ? '#64748b' : '#f43f5e'; ctx.beginPath(); ctx.roundRect(p.x, p.y, p.width, p.height, 5); ctx.fill(); if (p.shieldFrames > 0 && gameState !== 'GENERATING') { ctx.strokeStyle = '#3b82f6'; ctx.lineWidth = 3; ctx.beginPath(); ctx.arc(p.x+p.width/2, p.y+p.height/2, p.width*0.8, 0, Math.PI*2); ctx.stroke(); } ctx.restore(); }
+    if (p.invincibilityFrames % 10 < 5 || gameState === 'GENERATING') { ctx.save(); ctx.translate(p.x + p.width / 2, p.y + p.height / 2); ctx.rotate(p.tilt); ctx.translate(-(p.x + p.width / 2), -(p.y + p.height / 2)); ctx.fillStyle = gameState === 'GENERATING' ? '#64748b' : '#f43f5e'; ctx.beginPath(); if (ctx.roundRect) ctx.roundRect(p.x, p.y, p.width, p.height, 5); else ctx.rect(p.x, p.y, p.width, p.height); ctx.fill(); if (p.shieldFrames > 0 && gameState !== 'GENERATING') { ctx.strokeStyle = '#3b82f6'; ctx.lineWidth = 3; ctx.beginPath(); ctx.arc(p.x+p.width/2, p.y+p.height/2, p.width*0.8, 0, Math.PI*2); ctx.stroke(); } ctx.restore(); }
     for (const part of particles.current) { ctx.globalAlpha = part.life; ctx.fillStyle = part.color; ctx.fillRect(part.x, part.y, part.size, part.size); }
     const goal = levelData.current.goal; ctx.fillStyle = '#fbbf24'; ctx.fillRect(goal.x, goal.y, goal.width, goal.height);
     ctx.restore();
@@ -459,20 +463,18 @@ const App: React.FC = () => {
       if (gameMode === 'PLATFORMER') requestRef.current = requestAnimationFrame(updatePlatformer);
       else if (gameMode === 'SHOOTER') requestRef.current = requestAnimationFrame(updateShooter);
     }
-    return () => { if (requestRef.current) cancelAnimationFrame(requestRef.current); };
+    return () => { if (requestRef.current !== null) cancelAnimationFrame(requestRef.current); };
   }, [gameState, gameMode, updatePlatformer, updateShooter]);
 
-  // Fix PC Controls - Keyboard Events
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       initAudio();
-      // Bloquear scroll com as setas e espaço para melhor experiência no PC
       if ([' ', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.key)) {
         e.preventDefault();
       }
       const key = e.key.toLowerCase();
       keysPressed.current[e.key] = true;
-      keysPressed.current[key] = true; // Normalização para minúsculo
+      keysPressed.current[key] = true; 
 
       if (e.key === 'Escape') {
         setGameState(prev => prev === 'PLAYING' ? 'PAUSED' : prev === 'PAUSED' ? 'PLAYING' : prev);
@@ -484,7 +486,7 @@ const App: React.FC = () => {
     };
     window.addEventListener('keydown', handleKeyDown);
     window.addEventListener('keyup', handleKeyUp);
-    window.focus(); // Garante que a janela tenha foco
+    window.focus(); 
     return () => {
       window.removeEventListener('keydown', handleKeyDown);
       window.removeEventListener('keyup', handleKeyUp);
@@ -493,7 +495,7 @@ const App: React.FC = () => {
 
   const SidebarButton = ({ label, active, onClick, icon }: any) => (
     <button onClick={onClick} className={`w-full text-left px-6 py-4 md:rounded-xl flex items-center gap-4 transition-all duration-300 border-l-4 md:border-l-4 md:border-t-0 border-t-0 ${active ? 'bg-cyan-500/10 border-cyan-400 text-cyan-400' : 'bg-transparent border-transparent text-slate-400 hover:bg-white/5'}`}>
-      <span className="text-xl">{icon}</span><span className="font-bold tracking-wider uppercase text-sm">{label}</span>
+      <span className="text-xl">{icon}</span><span className="font-bold tracking-wider uppercase text-xs md:text-sm">{label}</span>
     </button>
   );
 
@@ -514,10 +516,9 @@ const App: React.FC = () => {
       
       {gameMode === 'MENU' && (
         <div className="absolute inset-0 z-50 flex flex-col md:flex-row overflow-hidden bg-slate-950/20">
-          {/* Sidebar / Top Nav adaptável */}
           <div className="w-full md:w-64 h-auto md:h-full bg-[#080d1a]/95 border-b md:border-b-0 md:border-r border-white/5 flex flex-col p-4 md:p-6 backdrop-blur-2xl">
-            <div className="mb-4 md:mb-12"><h1 className="text-xl md:text-2xl font-black text-white italic tracking-tighter text-center md:text-left">GEMINI <span className="text-cyan-400">ARCADE</span></h1></div>
-            <nav className="flex flex-row md:flex-col flex-1 gap-1 overflow-x-auto md:overflow-visible no-scrollbar">
+            <div className="mb-4 md:mb-12"><h1 className="text-lg md:text-2xl font-black text-white italic tracking-tighter text-center md:text-left leading-tight">GEMINI <br className="hidden md:block" /><span className="text-cyan-400">ARCADE</span></h1></div>
+            <nav className="flex flex-row md:flex-col flex-1 gap-1 overflow-x-auto md:overflow-visible no-scrollbar pb-2 md:pb-0">
               <SidebarButton label="Jogar" active={menuSection === 'PLAY'} onClick={() => setMenuSection('PLAY')} icon="🎮" />
               <SidebarButton label="Config" active={menuSection === 'SETTINGS'} onClick={() => setMenuSection('SETTINGS')} icon="⚙️" />
               <SidebarButton label="Perfil" active={menuSection === 'PROFILE'} onClick={() => setMenuSection('PROFILE')} icon="👤" />
@@ -525,52 +526,52 @@ const App: React.FC = () => {
             <div className="hidden md:block mt-auto pt-6 border-t border-white/5"><div className="bg-white/5 p-4 rounded-xl"><p className="text-[10px] text-slate-500 uppercase font-black tracking-widest leading-none">Recorde de Missão</p><p className="text-lg font-bold text-white font-mono mt-1">{highScore.toString().padStart(6, '0')}</p></div></div>
           </div>
           
-          <div className="flex-1 h-full p-6 md:p-12 bg-black/40 overflow-y-auto backdrop-blur-sm flex items-center justify-center">
+          <div className="flex-1 h-full p-4 md:p-12 bg-black/40 overflow-y-auto backdrop-blur-sm flex items-center justify-center">
             {menuSection === 'PLAY' && !isSelectingSkin && (
-              <div className="max-w-4xl animate-in fade-in slide-in-from-right-10 duration-500 w-full">
-                <h2 className="text-2xl md:text-4xl font-black text-white mb-6 md:mb-10 italic uppercase tracking-tighter text-center md:text-left">Selecione o Protocolo</h2>
+              <div className="max-w-4xl animate-in fade-in slide-in-from-right-10 duration-500 w-full py-4">
+                <h2 className="text-xl md:text-4xl font-black text-white mb-6 md:mb-10 italic uppercase tracking-tighter text-center md:text-left">Selecione o Protocolo</h2>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-8">
-                  <div onClick={() => startPlatformer(0)} className="group relative h-40 md:h-56 bg-emerald-600 rounded-2xl p-6 md:p-8 flex flex-col justify-end cursor-pointer hover:border-emerald-400 border-4 border-transparent transition-all overflow-hidden shadow-2xl active:scale-95">
-                    <div className="absolute inset-0 bg-black/30 group-hover:bg-black/0 transition-colors" /><div className="absolute top-4 right-4 text-3xl md:text-4xl opacity-20 group-hover:opacity-100 transition-opacity">🍄</div><h3 className="text-white text-xl md:text-3xl font-black uppercase relative z-10 italic tracking-tighter">Gemini Bros</h3><p className="text-emerald-200 text-[10px] md:text-xs font-black uppercase tracking-[0.2em] relative z-10 mt-1">Plataforma tática</p>
+                  <div onClick={() => startPlatformer(0)} className="group relative h-32 md:h-56 bg-emerald-600 rounded-2xl p-6 md:p-8 flex flex-col justify-end cursor-pointer hover:border-emerald-400 border-4 border-transparent transition-all overflow-hidden shadow-2xl active:scale-95">
+                    <div className="absolute inset-0 bg-black/30 group-hover:bg-black/0 transition-colors" /><div className="absolute top-4 right-4 text-2xl md:text-4xl opacity-20 group-hover:opacity-100 transition-opacity">🍄</div><h3 className="text-white text-lg md:text-3xl font-black uppercase relative z-10 italic tracking-tighter">Gemini Bros</h3><p className="text-emerald-200 text-[8px] md:text-xs font-black uppercase tracking-[0.2em] relative z-10 mt-1">Plataforma tática</p>
                   </div>
-                  <div onClick={() => { initAudio(); setIsSelectingSkin(true); }} className="group relative h-40 md:h-56 bg-indigo-900 rounded-2xl p-6 md:p-8 flex flex-col justify-end cursor-pointer hover:border-indigo-400 border-4 border-transparent transition-all overflow-hidden shadow-2xl active:scale-95">
-                    <div className="absolute inset-0 bg-black/30 group-hover:bg-black/0 transition-colors" /><div className="absolute top-4 right-4 text-3xl md:text-4xl opacity-20 group-hover:opacity-100 transition-opacity">🚀</div><h3 className="text-white text-xl md:text-3xl font-black uppercase relative z-10 italic tracking-tighter">Star Gemini</h3><p className="text-indigo-200 text-[10px] md:text-xs font-black uppercase tracking-[0.2em] relative z-10 mt-1">Intercepção Espacial</p>
+                  <div onClick={() => { initAudio(); setIsSelectingSkin(true); }} className="group relative h-32 md:h-56 bg-indigo-900 rounded-2xl p-6 md:p-8 flex flex-col justify-end cursor-pointer hover:border-indigo-400 border-4 border-transparent transition-all overflow-hidden shadow-2xl active:scale-95">
+                    <div className="absolute inset-0 bg-black/30 group-hover:bg-black/0 transition-colors" /><div className="absolute top-4 right-4 text-2xl md:text-4xl opacity-20 group-hover:opacity-100 transition-opacity">🚀</div><h3 className="text-white text-lg md:text-3xl font-black uppercase relative z-10 italic tracking-tighter">Star Gemini</h3><p className="text-indigo-200 text-[8px] md:text-xs font-black uppercase tracking-[0.2em] relative z-10 mt-1">Intercepção Espacial</p>
                   </div>
                 </div>
               </div>
             )}
             
             {isSelectingSkin && (
-              <div className="max-w-5xl animate-in zoom-in duration-500 w-full text-center">
-                <h2 className="text-3xl md:text-5xl font-black text-white mb-2 md:mb-4 italic uppercase tracking-tighter">Hangar</h2>
-                <p className="text-indigo-300 uppercase tracking-[0.4em] text-[10px] md:text-sm mb-6 md:mb-12 font-bold">Escolha seu chassi</p>
+              <div className="max-w-5xl animate-in zoom-in duration-500 w-full text-center py-4">
+                <h2 className="text-2xl md:text-5xl font-black text-white mb-2 md:mb-4 italic uppercase tracking-tighter">Hangar</h2>
+                <p className="text-indigo-300 uppercase tracking-[0.4em] text-[8px] md:text-sm mb-6 md:mb-12 font-bold">Escolha seu chassi</p>
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-6">
                   {[
                     { id: 'CORE' as ShooterSkin, name: 'Core Alpha', color: 'bg-cyan-500', desc: 'Equilíbrio padrão para todas missões.' },
                     { id: 'PHANTOM' as ShooterSkin, name: 'Phantom X', color: 'bg-purple-600', desc: 'Aerodinâmica furtiva e motor de dobra.' },
                     { id: 'STRIKER' as ShooterSkin, name: 'Striker Red', color: 'bg-red-600', desc: 'Fuselagem reforçada e canhões táticos.' }
                   ].map(skin => (
-                    <div key={skin.id} onClick={() => setSelectedSkin(skin.id)} className={`relative p-4 md:p-6 rounded-3xl border-4 cursor-pointer transition-all hover:scale-105 active:scale-95 flex flex-row md:flex-col items-center gap-4 md:gap-0 ${selectedSkin === skin.id ? 'border-cyan-400 bg-white/10' : 'border-white/5 bg-black/40'}`}>
-                      <div className={`w-12 h-12 md:w-16 md:h-16 ${skin.color} rounded-2xl md:mb-4 shadow-[0_0_20px_rgba(255,255,255,0.2)] flex-shrink-0`} />
-                      <div className="text-left md:text-center">
-                        <h4 className="text-white font-black uppercase italic text-lg md:text-xl md:mb-2">{skin.name}</h4>
-                        <p className="text-slate-400 text-[10px] md:text-xs font-bold leading-tight">{skin.desc}</p>
+                    <div key={skin.id} onClick={() => setSelectedSkin(skin.id)} className={`relative p-3 md:p-6 rounded-3xl border-4 cursor-pointer transition-all hover:scale-105 active:scale-95 flex flex-row md:flex-col items-center gap-3 md:gap-0 ${selectedSkin === skin.id ? 'border-cyan-400 bg-white/10' : 'border-white/5 bg-black/40'}`}>
+                      <div className={`w-10 h-10 md:w-16 md:h-16 ${skin.color} rounded-2xl md:mb-4 shadow-[0_0_20px_rgba(255,255,255,0.2)] flex-shrink-0`} />
+                      <div className="text-left md:text-center overflow-hidden">
+                        <h4 className="text-white font-black uppercase italic text-sm md:text-xl md:mb-2 truncate">{skin.name}</h4>
+                        <p className="text-slate-400 text-[8px] md:text-xs font-bold leading-tight line-clamp-2">{skin.desc}</p>
                       </div>
                     </div>
                   ))}
                 </div>
                 <div className="mt-8 md:mt-16 flex flex-col md:flex-row gap-4 justify-center">
-                  <button onClick={() => setIsSelectingSkin(false)} className="order-2 md:order-1 px-10 py-3 md:py-4 bg-white/5 text-white font-black rounded-full italic hover:bg-white/10 text-sm md:text-base">VOLTAR</button>
-                  <button onClick={initShooter} className="order-1 md:order-2 px-12 md:px-16 py-3 md:py-4 bg-cyan-500 text-white font-black rounded-full text-lg md:text-xl shadow-xl hover:scale-110 active:scale-90 transition-all uppercase italic tracking-tight border-b-4 border-cyan-700">LANÇAR</button>
+                  <button onClick={() => setIsSelectingSkin(false)} className="order-2 md:order-1 px-8 py-2 md:py-4 bg-white/5 text-white font-black rounded-full italic hover:bg-white/10 text-[10px] md:text-base">VOLTAR</button>
+                  <button onClick={initShooter} className="order-1 md:order-2 px-10 md:px-16 py-3 md:py-4 bg-cyan-500 text-white font-black rounded-full text-base md:text-xl shadow-xl hover:scale-110 active:scale-90 transition-all uppercase italic tracking-tight border-b-4 border-cyan-700">LANÇAR</button>
                 </div>
               </div>
             )}
 
             {menuSection === 'MAIN' && (
-              <div className="flex flex-col items-center justify-center w-full text-center animate-in zoom-in duration-1000">
-                <p className="text-cyan-400 font-black uppercase tracking-[0.5em] text-[10px] md:text-sm mb-4">Protocolo Ativado</p>
-                <h2 className="text-5xl md:text-8xl font-black text-white italic mb-8 md:mb-12 uppercase tracking-tighter leading-none">ACEITAR <br/><span className="text-cyan-400">O DESAFIO?</span></h2>
-                <button onClick={() => setMenuSection('PLAY')} className="px-10 md:px-16 py-4 md:py-5 bg-cyan-500 text-white font-black rounded-full text-xl md:text-2xl shadow-[0_0_50px_rgba(6,182,212,0.5)] hover:scale-110 active:scale-90 transition-all uppercase italic tracking-tighter border-b-4 border-cyan-700">Iniciar Operação</button>
+              <div className="flex flex-col items-center justify-center w-full text-center animate-in zoom-in duration-1000 px-4">
+                <p className="text-cyan-400 font-black uppercase tracking-[0.5em] text-[8px] md:text-sm mb-2 md:mb-4">Protocolo Ativado</p>
+                <h2 className="text-3xl md:text-8xl font-black text-white italic mb-8 md:mb-12 uppercase tracking-tighter leading-none">ACEITAR <br/><span className="text-cyan-400">O DESAFIO?</span></h2>
+                <button onClick={() => setMenuSection('PLAY')} className="px-10 md:px-16 py-4 md:py-5 bg-cyan-500 text-white font-black rounded-full text-lg md:text-2xl shadow-[0_0_50px_rgba(6,182,212,0.5)] hover:scale-110 active:scale-90 transition-all uppercase italic tracking-tighter border-b-4 border-cyan-700">Iniciar Operação</button>
               </div>
             )}
           </div>
