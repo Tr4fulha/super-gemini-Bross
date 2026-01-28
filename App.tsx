@@ -6,6 +6,58 @@ import MobileControls from './components/MobileControls';
 
 type ShooterSkin = 'CORE' | 'PHANTOM' | 'STRIKER';
 
+// Pixel Art Button Component
+const PixelButton: React.FC<{
+  label: string;
+  onClick: () => void;
+  width?: string;
+  className?: string;
+  subtle?: boolean;
+}> = ({ label, onClick, width = 'w-64 md:w-80', className = '', subtle = false }) => (
+  <button
+    onClick={onClick}
+    className={`relative ${width} h-12 md:h-14 bg-[#1a2e35]/80 border-y-2 border-[#5de2ef] group active:scale-95 transition-all mb-1 ${className}`}
+    style={{
+      boxShadow: '0 4px 0 rgba(0,0,0,0.3)',
+      imageRendering: 'pixelated'
+    }}
+  >
+    {/* Side borders with notches */}
+    <div className="absolute inset-y-0 left-0 w-1 bg-[#5de2ef]"></div>
+    <div className="absolute inset-y-0 right-0 w-1 bg-[#5de2ef]"></div>
+    
+    {/* Corner Decorations */}
+    <div className="absolute top-0 left-0 w-2 h-2 bg-[#5de2ef] -translate-x-1 -translate-y-1"></div>
+    <div className="absolute top-0 left-0 w-4 h-1 bg-[#5de2ef] -translate-y-1"></div>
+    <div className="absolute top-0 left-0 w-1 h-4 bg-[#5de2ef] -translate-x-1"></div>
+    
+    <div className="absolute bottom-0 right-0 w-2 h-2 bg-[#5de2ef] translate-x-1 translate-y-1"></div>
+    <div className="absolute bottom-0 right-0 w-4 h-1 bg-[#5de2ef] translate-y-1"></div>
+    <div className="absolute bottom-0 right-0 w-1 h-4 bg-[#5de2ef] translate-x-1"></div>
+
+    {/* Scanline Overlay */}
+    <div className="absolute inset-0 pointer-events-none opacity-20 bg-[linear-gradient(rgba(18,16,16,0)_50%,rgba(0,0,0,0.25)_50%),linear-gradient(90deg,rgba(255,0,0,0.06),rgba(0,255,0,0.02),rgba(0,0,255,0.06))] bg-[length:100%_2px,3px_100%]"></div>
+    
+    <span className="relative z-10 text-[#5de2ef] font-black uppercase italic tracking-widest text-sm md:text-lg drop-shadow-[0_2px_0_rgba(0,0,0,0.5)]">
+      {label}
+    </span>
+  </button>
+);
+
+const PixelIconButton: React.FC<{
+  icon: string | React.ReactNode;
+  onClick: () => void;
+  size?: string;
+}> = ({ icon, onClick, size = 'w-12 h-12' }) => (
+  <button
+    onClick={onClick}
+    className={`relative ${size} bg-[#1a2e35]/90 border-2 border-[#5de2ef] flex items-center justify-center active:scale-90 transition-all shadow-[0_4px_0_rgba(0,0,0,0.4)] group`}
+  >
+    <div className="absolute inset-0 pointer-events-none opacity-10 bg-[repeating-linear-gradient(0deg,transparent,transparent_1px,black_1px,black_2px)]"></div>
+    <span className="text-[#5de2ef] text-xl font-black drop-shadow-md group-hover:scale-110 transition-transform">{icon}</span>
+  </button>
+);
+
 const App: React.FC = () => {
   const [gameMode, setGameMode] = useState<GameMode>('MENU');
   const [gameState, setGameState] = useState<GameState>('START');
@@ -173,7 +225,6 @@ const App: React.FC = () => {
     const size = 35 + Math.random() * 55;
     const points = [];
     const segments = 10 + Math.floor(Math.random() * 6);
-    // Cria um polígono irregular pixelado
     for (let i = 0; i < segments; i++) {
       const angle = (i / segments) * Math.PI * 2;
       const dist = (size / 2) * (0.8 + Math.random() * 0.4);
@@ -184,28 +235,26 @@ const App: React.FC = () => {
       y: -size - 100,
       width: size,
       height: size,
-      velocityX: (Math.random() - 0.5) * 1.5, // Trajetória linear estável
+      velocityX: (Math.random() - 0.5) * 1.5,
       velocityY: 2.0 + Math.random() * 2.5,
       type: 'asteroid' as const,
       range: 0,
       startX: 0,
       startY: 0,
-      health: 80, // Asteroides agora têm vida e podem ser destruídos
+      health: 80,
       phase: 'active' as const,
       rotation: Math.random() * Math.PI * 2,
-      sineOffset: (Math.random() - 0.5) * 0.04, // Usado como velocidade de rotação apenas
+      sineOffset: (Math.random() - 0.5) * 0.04,
       points: points
     };
   }, [dims.w]);
 
   const checkCircleCollision = (a: GameObject, b: Enemy) => {
-    // b é o asteroide, a é o player ou projétil
     const ax = a.x + a.width / 2;
     const ay = a.y + a.height / 2;
     const bx = b.x + b.width / 2;
     const by = b.y + b.height / 2;
     const dist = Math.sqrt((ax - bx) ** 2 + (ay - by) ** 2);
-    // Margem de colisão de 85% do tamanho para ser mais justo e parecer pixel-accurate
     return dist < (a.width / 2 + b.width / 2) * 0.85;
   };
 
@@ -325,7 +374,6 @@ const App: React.FC = () => {
       const pr = projectiles.current[i]; pr.y += pr.velocityY; pr.x += pr.velocityX;
       if (pr.y < -100 || pr.y > dims.h + 100 || pr.x < -100 || pr.x > dims.w + 100) { projectiles.current.splice(i, 1); continue; }
       
-      // Colisão Projétil Jogador vs Asteroides
       if (pr.owner === 'player') {
         for(let ei = g.enemies.length -1; ei >= 0; ei--) {
           const e = g.enemies[ei];
@@ -367,7 +415,6 @@ const App: React.FC = () => {
       const e = g.enemies[ei];
       if (e.type === 'asteroid') {
         e.y += e.velocityY; e.x += e.velocityX; e.rotation = (e.rotation || 0) + (e.sineOffset || 0.02);
-        // Colisão Circular com o Jogador
         if (checkCircleCollision(p, e) && p.invincibilityFrames === 0) { 
           if (p.shieldFrames > 0) { p.shieldFrames = 0; p.invincibilityFrames = 60; createExplosion(e.x + e.width/2, e.y + e.height/2, '#64748b', 30); g.enemies.splice(ei, 1); playSound('explosion'); continue; }
           triggerDeath(); 
@@ -491,8 +538,7 @@ const App: React.FC = () => {
     
     nebulas.current.forEach(n => {
       const grad = ctx.createRadialGradient(n.x, n.y, 0, n.x, n.y, n.size);
-      grad.addColorStop(0, n.color);
-      grad.addColorStop(1, 'rgba(0,0,0,0)');
+      grad.addColorStop(0, n.color); grad.addColorStop(1, 'rgba(0,0,0,0)');
       ctx.fillStyle = grad; ctx.fillRect(n.x - n.size, n.y - n.size, n.size * 2, n.size * 2);
     });
 
@@ -501,8 +547,6 @@ const App: React.FC = () => {
       const grad = ctx.createLinearGradient(pl.x - pl.size/2, pl.y, pl.x + pl.size/2, pl.y);
       grad.addColorStop(0, pl.color); grad.addColorStop(1, '#0f172a');
       ctx.fillStyle = grad; ctx.beginPath(); ctx.arc(pl.x, pl.y, pl.size/2, 0, Math.PI * 2); ctx.fill();
-      ctx.fillStyle = 'rgba(0,0,0,0.15)';
-      ctx.beginPath(); ctx.arc(pl.x - pl.size/6, pl.y + pl.size/8, pl.size/10, 0, Math.PI * 2); ctx.fill();
       ctx.restore();
     });
 
@@ -518,14 +562,6 @@ const App: React.FC = () => {
       else if (selectedSkin === 'STRIKER') { ctx.moveTo(p.x + p.width/2, p.y); ctx.lineTo(p.x + p.width, p.y + p.height); ctx.lineTo(p.x + p.width/2, p.y + p.height * 0.7); ctx.lineTo(p.x, p.y + p.height); }
       else { ctx.moveTo(p.x + p.width / 2, p.y); ctx.lineTo(p.x + p.width, p.y + p.height); ctx.lineTo(p.x, p.y + p.height); }
       ctx.closePath(); ctx.fill();
-      if (!gameState.includes('GENERATING')) {
-        ctx.fillStyle = Math.random() > 0.5 ? '#fbbf24' : '#f59e0b';
-        ctx.fillRect(p.x + p.width/2 - 4, p.y + p.height, 8, 4 + Math.random()*4);
-      }
-      if (p.shieldFrames > 0 && gameState !== 'GENERATING') {
-        ctx.strokeStyle = '#3b82f6'; ctx.lineWidth = 2; ctx.beginPath();
-        ctx.arc(p.x + p.width/2, p.y + p.height/2, p.width * 1.1, 0, Math.PI * 2); ctx.stroke();
-      }
       ctx.restore();
     }
 
@@ -540,11 +576,7 @@ const App: React.FC = () => {
           for (let i = 1; i < e.points.length; i++) ctx.lineTo(e.points[i].x, e.points[i].y);
         }
         ctx.closePath(); ctx.fill();
-        ctx.strokeStyle = '#1e293b'; ctx.lineWidth = 2; ctx.stroke();
-        // Crateras pixeladas
-        ctx.fillStyle = 'rgba(0,0,0,0.2)';
-        ctx.fillRect(-e.width/4, -e.height/6, e.width/6, e.width/6);
-        ctx.fillRect(e.width/8, e.height/8, e.width/8, e.width/8);
+        ctx.strokeStyle = '#1e293b'; ctx.stroke();
       } else {
         ctx.fillStyle = e.hitFlash ? '#fff' : e.type === 'boss' ? '#a855f7' : e.type === 'heavy' ? '#78350f' : e.type === 'fast' ? '#10b981' : '#f43f5e'; 
         ctx.beginPath();
@@ -552,7 +584,6 @@ const App: React.FC = () => {
         else if (e.type === 'fast') { ctx.moveTo(e.x + e.width / 2, e.y + e.height); ctx.lineTo(e.x + e.width, e.y); ctx.lineTo(e.x + e.width / 2, e.y + e.height / 4); ctx.lineTo(e.x, e.y); }
         else { ctx.moveTo(e.x + e.width / 2, e.y + e.height); ctx.lineTo(e.x + e.width, e.y + e.height / 4); ctx.lineTo(e.x + e.width * 0.7, e.y); ctx.lineTo(e.x + e.width * 0.3, e.y); ctx.lineTo(e.x, e.y + e.height / 4); }
         ctx.closePath(); ctx.fill();
-        if (e.type === 'boss') { ctx.fillStyle = '#450a0a'; ctx.fillRect(e.x, e.y - 20, e.width, 8); ctx.fillStyle = '#f43f5e'; ctx.fillRect(e.x, e.y - 20, (e.health / (e.maxHealth || 1)) * e.width, 8); }
       }
       ctx.restore();
     });
@@ -619,96 +650,126 @@ const App: React.FC = () => {
     return () => { window.removeEventListener('keydown', handleKeyDown); window.removeEventListener('keyup', handleKeyUp); };
   }, []);
 
-  const SidebarButton = ({ label, active, onClick, icon }: any) => (
-    <button onClick={onClick} className={`w-full text-left px-6 py-5 md:rounded-xl flex items-center gap-4 transition-all duration-300 border-l-4 md:border-l-4 md:border-t-0 border-t-0 ${active ? 'bg-cyan-500/20 border-cyan-400 text-cyan-400' : 'bg-transparent border-transparent text-slate-400 hover:bg-white/5'}`}>
-      <span className="text-xl md:text-2xl">{icon}</span><span className="font-bold tracking-wider uppercase text-xs md:text-sm">{label}</span>
-    </button>
-  );
-
   return (
-    <div className="relative w-full h-screen bg-black flex items-center justify-center overflow-hidden touch-none font-sans select-none">
+    <div className="relative w-full h-screen bg-[#0d141f] flex items-center justify-center overflow-hidden touch-none font-sans select-none">
       <canvas ref={canvasRef} width={dims.w} height={dims.h} className="absolute inset-0 w-full h-full block bg-black" style={{ imageRendering: 'pixelated' }} />
-      {gameMode === 'MENU' && (
-        <div className="absolute inset-0 z-50 flex flex-col md:flex-row overflow-hidden bg-slate-950/20">
-          <div className="w-full md:w-64 h-auto md:h-full bg-[#080d1a]/95 border-b md:border-b-0 md:border-r border-white/5 flex flex-col p-4 md:p-6 backdrop-blur-2xl">
-            <div className="mb-4 md:mb-12"><h1 className="text-lg md:text-2xl font-black text-white italic tracking-tighter text-center md:text-left leading-tight">GEMINI <br className="hidden md:block" /><span className="text-cyan-400">ARCADE</span></h1></div>
-            <nav className="flex flex-row md:flex-col flex-1 gap-1 overflow-x-auto md:overflow-visible no-scrollbar pb-2 md:pb-0">
-              <SidebarButton label="Jogar" active={menuSection === 'PLAY'} onClick={() => setMenuSection('PLAY')} icon="🎮" />
-              <SidebarButton label="Config" active={menuSection === 'SETTINGS'} onClick={() => setMenuSection('SETTINGS')} icon="⚙️" />
-              <SidebarButton label="Perfil" active={menuSection === 'PROFILE'} onClick={() => setMenuSection('PROFILE')} icon="👤" />
-            </nav>
-            <div className="hidden md:block mt-auto pt-6 border-t border-white/5"><div className="bg-white/5 p-4 rounded-xl"><p className="text-[10px] text-slate-500 uppercase font-black tracking-widest leading-none">Recorde de Missão</p><p className="text-lg font-bold text-white font-mono mt-1">{highScore.toString().padStart(6, '0')}</p></div></div>
+      
+      {/* HUD Styles Overhaul */}
+      {gameMode !== 'MENU' && gameState !== 'GENERATING' && (
+        <div className="absolute top-0 left-0 right-0 p-4 md:p-6 flex justify-between items-start pointer-events-none z-30">
+          <div className="flex flex-col gap-2">
+            <div className="bg-[#1a2e35]/90 border-2 border-[#5de2ef] p-2 md:p-3 shadow-xl flex flex-col items-center">
+              <div className="flex gap-1 mb-1">{[...Array(lives)].map((_, i) => (<span key={i} className="text-sm md:text-xl text-[#ff5d5d]">❤</span>))}</div>
+              <div className="text-[10px] md:text-xs font-black text-[#5de2ef] uppercase tracking-widest">{gameMode === 'SHOOTER' ? `ONDA ${shooterWave}` : levelInfo?.name}</div>
+            </div>
+            {gameMode === 'SHOOTER' && (
+              <div className="bg-[#1a2e35]/90 border-2 border-[#5de2ef] p-1 w-32 md:w-40">
+                <div className="flex justify-between text-[8px] font-black text-[#5de2ef] mb-1"><span>ULTRA</span><span>{Math.floor(player.current.energy)}%</span></div>
+                <div className="h-2 bg-black/40"><div className="h-full bg-[#5de2ef]" style={{ width: `${player.current.energy}%` }}></div></div>
+              </div>
+            )}
           </div>
-          <div className="flex-1 h-full p-4 md:p-12 bg-black/40 overflow-y-auto backdrop-blur-sm flex items-center justify-center">
-            {menuSection === 'PLAY' && !isSelectingSkin && (
-              <div className="max-w-4xl animate-in fade-in slide-in-from-right-10 duration-500 w-full py-4">
-                <h2 className="text-xl md:text-4xl font-black text-white mb-6 md:mb-10 italic uppercase tracking-tighter text-center md:text-left">Selecione o Protocolo</h2>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-8">
-                  <div onClick={() => startPlatformer(0)} className="group relative h-32 md:h-56 bg-emerald-600 rounded-2xl p-6 md:p-8 flex flex-col justify-end cursor-pointer hover:border-emerald-400 border-4 border-transparent transition-all overflow-hidden shadow-2xl active:scale-95">
-                    <div className="absolute inset-0 bg-black/30 group-hover:bg-black/0 transition-colors" /><div className="absolute top-4 right-4 text-2xl md:text-4xl opacity-20 group-hover:opacity-100 transition-opacity">🍄</div><h3 className="text-white text-lg md:text-3xl font-black uppercase relative z-10 italic tracking-tighter">Gemini Bros</h3><p className="text-emerald-200 text-[8px] md:text-xs font-black uppercase tracking-[0.2em] relative z-10 mt-1">Plataforma tática</p>
-                  </div>
-                  <div onClick={() => { initAudio(); setIsSelectingSkin(true); }} className="group relative h-32 md:h-56 bg-indigo-900 rounded-2xl p-6 md:p-8 flex flex-col justify-end cursor-pointer hover:border-indigo-400 border-4 border-transparent transition-all overflow-hidden shadow-2xl active:scale-95">
-                    <div className="absolute inset-0 bg-black/30 group-hover:bg-black/0 transition-colors" /><div className="absolute top-4 right-4 text-2xl md:text-4xl opacity-20 group-hover:opacity-100 transition-opacity">🚀</div><h3 className="text-white text-lg md:text-3xl font-black uppercase relative z-10 italic tracking-tighter">Star Gemini</h3><p className="text-indigo-200 text-[8px] md:text-xs font-black uppercase tracking-[0.2em] relative z-10 mt-1">Intercepção Espacial</p>
-                  </div>
-                </div>
-              </div>
-            )}
-            {isSelectingSkin && (
-              <div className="max-w-5xl animate-in zoom-in duration-500 w-full text-center py-4">
-                <h2 className="text-2xl md:text-5xl font-black text-white mb-2 md:mb-4 italic uppercase tracking-tighter">Hangar</h2>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-6">
-                  {[
-                    { id: 'CORE' as ShooterSkin, name: 'Core Alpha', color: 'bg-cyan-500', desc: 'Equilíbrio padrão.' },
-                    { id: 'PHANTOM' as ShooterSkin, name: 'Phantom X', color: 'bg-purple-600', desc: 'Aerodinâmica furtiva.' },
-                    { id: 'STRIKER' as ShooterSkin, name: 'Striker Red', color: 'bg-red-600', desc: 'Canhões táticos.' }
-                  ].map(skin => (
-                    <div key={skin.id} onClick={() => setSelectedSkin(skin.id)} className={`relative p-3 md:p-6 rounded-3xl border-4 cursor-pointer transition-all hover:scale-105 active:scale-95 flex flex-row md:flex-col items-center gap-3 md:gap-0 ${selectedSkin === skin.id ? 'border-cyan-400 bg-white/10' : 'border-white/5 bg-black/40'}`}>
-                      <div className={`w-10 h-10 md:w-16 md:h-16 ${skin.color} rounded-2xl md:mb-4 flex-shrink-0`} />
-                      <h4 className="text-white font-black uppercase italic text-sm md:text-xl md:mb-2 truncate">{skin.name}</h4>
-                    </div>
-                  ))}
-                </div>
-                <div className="mt-8 md:mt-16 flex flex-col md:flex-row gap-4 justify-center">
-                  <button onClick={() => setIsSelectingSkin(false)} className="px-8 py-2 md:py-4 bg-white/5 text-white font-black rounded-full italic uppercase">VOLTAR</button>
-                  <button onClick={initShooter} className="px-10 md:px-16 py-3 md:py-4 bg-cyan-500 text-white font-black rounded-full text-base md:text-xl uppercase italic border-b-4 border-cyan-700">LANÇAR</button>
-                </div>
-              </div>
-            )}
-            {menuSection === 'MAIN' && (
-              <div className="flex flex-col items-center justify-center w-full text-center animate-in zoom-in duration-1000 px-4">
-                <p className="text-cyan-400 font-black uppercase tracking-[0.5em] text-[8px] md:text-sm mb-2 md:mb-4">Protocolo Ativado</p>
-                <h2 className="text-3xl md:text-8xl font-black text-white italic mb-8 md:mb-12 uppercase tracking-tighter leading-none">ACEITAR <br/><span className="text-cyan-400">O DESAFIO?</span></h2>
-                <button onClick={() => setMenuSection('PLAY')} className="px-10 md:px-16 py-4 md:py-5 bg-cyan-500 text-white font-black rounded-full text-lg md:text-2xl uppercase italic border-b-4 border-cyan-700">Iniciar Operação</button>
-              </div>
-            )}
+          <div className="bg-[#1a2e35]/90 border-2 border-[#5de2ef] px-4 py-2 md:px-6 md:py-3 shadow-xl flex flex-col items-end">
+            <span className="text-[10px] md:text-xs text-[#5de2ef] opacity-70 uppercase font-black">Score</span>
+            <span className="text-xl md:text-3xl font-black text-[#5de2ef] tracking-wider">{score.toString().padStart(6, '0')}</span>
           </div>
         </div>
       )}
-      {gameMode !== 'MENU' && gameState !== 'GENERATING' && (
-        <>
-          <div className="absolute top-0 left-0 right-0 p-4 md:p-6 flex justify-between items-start pointer-events-none z-30">
-            <div className="bg-[#080d1a]/90 backdrop-blur-xl p-2 md:p-3 rounded-xl border border-white/10 flex flex-col items-center shadow-2xl">
-              <div className="flex gap-1 mb-1">{[...Array(lives)].map((_, i) => (<span key={i} className="text-xs md:text-base text-red-500 drop-shadow-[0_0_5px_rgba(239,68,68,0.5)]">❤</span>))}</div>
-              <div className="text-[8px] md:text-[10px] font-black text-cyan-400 uppercase tracking-widest leading-none">{gameMode === 'SHOOTER' ? `Onda ${shooterWave}` : levelInfo?.name}</div>
+
+      {gameMode === 'MENU' && (
+        <div className="absolute inset-0 z-50 flex flex-col items-center justify-center bg-[#0d141f]/40 backdrop-blur-sm p-4">
+          {/* Main Tapered Menu Layout */}
+          {menuSection === 'MAIN' && (
+            <div className="flex flex-col items-center animate-in fade-in zoom-in duration-500">
+              <h1 className="text-4xl md:text-7xl font-black text-[#5de2ef] italic mb-12 tracking-tighter drop-shadow-[0_4px_0_rgba(0,0,0,0.5)] uppercase">
+                Gemini <span className="text-white">Arcade</span>
+              </h1>
+              
+              <div className="flex flex-col items-center gap-2">
+                <PixelButton label="PLAY" onClick={() => setMenuSection('PLAY')} />
+                <PixelButton label="TUTORIAL" onClick={() => {}} />
+                <PixelButton label="OPTIONS" onClick={() => {}} />
+                <PixelButton label="STORE" onClick={() => {}} />
+                <PixelButton label="QUIT" onClick={() => {}} width="w-48 md:w-64" className="mt-4" />
+              </div>
+              
+              {/* Bottom Icon Grid Taper */}
+              <div className="flex flex-col items-center mt-8 gap-3">
+                <div className="flex gap-4">
+                  <PixelIconButton icon="Ⅱ" onClick={() => {}} />
+                  <PixelIconButton icon="▶" onClick={() => {}} />
+                  <PixelIconButton icon="⚙" onClick={() => {}} />
+                </div>
+                <div className="flex gap-4">
+                  <PixelIconButton icon="♫" onClick={() => {}} />
+                  <PixelIconButton icon="☰" onClick={() => {}} />
+                </div>
+                <PixelIconButton icon="✖" onClick={() => {}} />
+              </div>
             </div>
-            <div className="bg-[#080d1a]/90 backdrop-blur-xl px-4 md:px-8 py-2 md:py-3 rounded-xl border border-white/10 text-white font-mono shadow-2xl flex flex-col items-end leading-none">
-              <span className="text-[8px] md:text-[11px] text-slate-500 uppercase font-black tracking-widest mb-1">Score</span>
-              <span className="text-base md:text-2xl font-black tracking-tighter">{score.toString().padStart(6, '0')}</span>
+          )}
+
+          {menuSection === 'PLAY' && !isSelectingSkin && (
+            <div className="flex flex-col items-center animate-in slide-in-from-bottom-10 duration-500">
+              <h2 className="text-3xl md:text-5xl font-black text-[#5de2ef] mb-10 uppercase italic">Selecione Missão</h2>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div onClick={() => startPlatformer(0)} className="w-64 h-40 bg-[#1a2e35] border-2 border-[#5de2ef] p-4 cursor-pointer hover:bg-[#25424b] transition-all flex flex-col justify-end group">
+                   <div className="text-[#5de2ef] font-black uppercase text-2xl group-hover:scale-105 transition-transform">Gemini Bros</div>
+                   <div className="text-white/60 text-[10px] uppercase font-bold tracking-widest mt-1">Platform Protocol</div>
+                </div>
+                <div onClick={() => { initAudio(); setIsSelectingSkin(true); }} className="w-64 h-40 bg-[#1a2e35] border-2 border-[#5de2ef] p-4 cursor-pointer hover:bg-[#25424b] transition-all flex flex-col justify-end group">
+                   <div className="text-[#5de2ef] font-black uppercase text-2xl group-hover:scale-105 transition-transform">Star Gemini</div>
+                   <div className="text-white/60 text-[10px] uppercase font-bold tracking-widest mt-1">Combat Protocol</div>
+                </div>
+              </div>
+              <PixelButton label="VOLTAR" onClick={() => setMenuSection('MAIN')} width="w-48" className="mt-12" />
             </div>
-          </div>
-        </>
+          )}
+
+          {isSelectingSkin && (
+            <div className="flex flex-col items-center animate-in zoom-in duration-500">
+              <h2 className="text-3xl md:text-5xl font-black text-[#5de2ef] mb-10 uppercase italic tracking-tighter">Hangar de Combate</h2>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-12">
+                {[
+                  { id: 'CORE' as ShooterSkin, name: 'Core Alpha', color: 'bg-[#22d3ee]' },
+                  { id: 'PHANTOM' as ShooterSkin, name: 'Phantom X', color: 'bg-[#d946ef]' },
+                  { id: 'STRIKER' as ShooterSkin, name: 'Striker Red', color: 'bg-[#ef4444]' }
+                ].map(skin => (
+                  <div key={skin.id} onClick={() => setSelectedSkin(skin.id)} className={`p-6 bg-[#1a2e35] border-4 cursor-pointer transition-all hover:scale-105 ${selectedSkin === skin.id ? 'border-[#5de2ef]' : 'border-white/5'}`}>
+                    <div className={`w-16 h-16 ${skin.color} mx-auto mb-4 border-2 border-white/20 shadow-lg`} />
+                    <h4 className="text-white font-black uppercase italic text-center">{skin.name}</h4>
+                  </div>
+                ))}
+              </div>
+              <div className="flex gap-4">
+                <PixelButton label="VOLTAR" onClick={() => setIsSelectingSkin(false)} width="w-40" />
+                <PixelButton label="LANÇAR" onClick={initShooter} width="w-56" />
+              </div>
+            </div>
+          )}
+        </div>
       )}
+
       {(gameState === 'GAME_OVER' || gameState === 'WIN') && (
-         <div className={`absolute inset-0 z-[100] flex flex-col items-center justify-center p-6 md:p-8 backdrop-blur-2xl animate-in zoom-in duration-500 ${gameState === 'WIN' ? 'bg-emerald-950/90' : 'bg-red-950/90'}`}>
-            <h2 className="text-5xl md:text-8xl font-black text-white italic mb-4 uppercase tracking-tighter text-center">{gameState === 'WIN' ? 'MISSÃO CUMPRIDA' : 'NAVE ABATIDA'}</h2>
-            <div className="bg-black/30 px-8 py-4 rounded-3xl mb-8 border border-white/10 text-center"><p className="text-white/60 font-black uppercase text-[10px] md:text-sm tracking-[0.4em]">SCORE FINAL</p><p className="text-4xl md:text-6xl font-mono font-black text-white">{score}</p></div>
-            <div className="flex flex-col md:flex-row gap-4 justify-center">
-              <button onClick={() => { setGameMode('MENU'); setGameState('START'); setMenuSection('MAIN'); setIsSelectingSkin(false); }} className="px-10 py-4 bg-white text-black font-black rounded-full italic uppercase text-lg">Menu</button>
-              <button onClick={() => { initAudio(); if (gameMode === 'PLATFORMER') startPlatformer(currentLevelIdx); else initShooter(); }} className="px-10 py-4 bg-black/40 text-white border-2 border-white/20 font-black rounded-full italic uppercase text-lg">Reiniciar</button>
+         <div className="absolute inset-0 z-[100] flex flex-col items-center justify-center p-6 bg-black/80 backdrop-blur-md animate-in fade-in duration-500">
+            <h2 className={`text-4xl md:text-7xl font-black italic mb-6 uppercase tracking-tighter text-center ${gameState === 'WIN' ? 'text-emerald-400' : 'text-red-500'}`}>
+              {gameState === 'WIN' ? 'MISSÃO CUMPRIDA' : 'NAVE ABATIDA'}
+            </h2>
+            <div className="bg-[#1a2e35] border-2 border-[#5de2ef] p-6 text-center mb-10 min-w-[200px]">
+              <p className="text-[#5de2ef] font-black uppercase text-[10px] tracking-widest mb-2">Score Final</p>
+              <p className="text-4xl md:text-6xl font-black text-white">{score}</p>
+            </div>
+            <div className="flex flex-col md:flex-row gap-4">
+              <PixelButton label="MENU" onClick={() => { setGameMode('MENU'); setGameState('START'); setMenuSection('MAIN'); setIsSelectingSkin(false); }} width="w-48" />
+              <PixelButton label="REINICIAR" onClick={() => { initAudio(); if (gameMode === 'PLATFORMER') startPlatformer(currentLevelIdx); else initShooter(); }} width="w-48" />
             </div>
          </div>
       )}
+
       {gameState === 'PLAYING' && <MobileControls onPress={(k, p) => { initAudio(); keysPressed.current[k] = p; keysPressed.current[k.toLowerCase()] = p; }} mode={gameMode === 'SHOOTER' ? 'SHOOTER' : 'PLATFORMER'} />}
+      
+      {/* Scanline Overlay for the whole Screen */}
+      <div className="absolute inset-0 pointer-events-none opacity-[0.03] bg-[linear-gradient(rgba(18,16,16,0)_50%,rgba(0,0,0,0.25)_50%),linear-gradient(90deg,rgba(255,0,0,0.06),rgba(0,255,0,0.02),rgba(0,0,255,0.06))] bg-[length:100%_4px,3px_100%] z-[200]"></div>
     </div>
   );
 };
