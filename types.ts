@@ -1,6 +1,7 @@
 
 export type GameMode = 'MENU' | 'PLATFORMER' | 'SHOOTER';
-export type GameState = 'START' | 'PLAYING' | 'GAME_OVER' | 'WIN' | 'GENERATING';
+export type GameState = 'START' | 'PLAYING' | 'PAUSED' | 'GAME_OVER' | 'WIN' | 'GENERATING';
+export type MenuSection = 'MAIN' | 'PLAY' | 'SETTINGS' | 'PROFILE' | 'ABOUT';
 
 export interface LevelInfo {
   name: string;
@@ -34,10 +35,15 @@ export interface Player extends GameObject {
   maxDroneFrames: number;
   tripleShotFrames: number;
   maxTripleShotFrames: number;
-  tilt: number; // For smoother animation
+  tilt: number;
+  // New Mechanics
+  energy: number;
+  maxEnergy: number;
+  dashCooldown: number;
+  dashFrames: number;
+  scrapCount: number;
 }
 
-// Platformer specific
 export interface Platform extends GameObject {
   type: 'solid' | 'grass' | 'lava' | 'breakable' | 'moving';
   isDestroyed?: boolean;
@@ -49,7 +55,7 @@ export interface Platform extends GameObject {
 }
 
 export interface PowerUp extends GameObject {
-  type: 'mushroom' | 'triple_shot' | 'shield' | 'drone' | 'life';
+  type: 'mushroom' | 'triple_shot' | 'shield' | 'drone' | 'life' | 'scrap';
   collected: boolean;
   velocityY?: number;
 }
@@ -57,7 +63,7 @@ export interface PowerUp extends GameObject {
 export interface Enemy extends GameObject {
   velocityX: number;
   velocityY: number;
-  type: 'patrol' | 'fly' | 'stalker' | 'jumper' | 'ufo' | 'invader' | 'scout' | 'bomber';
+  type: 'patrol' | 'fly' | 'stalker' | 'jumper' | 'ufo' | 'invader' | 'scout' | 'bomber' | 'boss' | 'heavy' | 'fast' | 'asteroid';
   range: number;
   startX: number;
   startY: number;
@@ -66,7 +72,7 @@ export interface Enemy extends GameObject {
   isGrounded?: boolean;
   health: number;
   maxHealth?: number;
-  phase?: 'entry' | 'active'; // Entry animation state
+  phase?: 'entry' | 'active';
   targetX?: number;
   targetY?: number;
   sineOffset?: number;
@@ -88,7 +94,6 @@ export interface LevelData {
   playerStart: { x: number; y: number };
 }
 
-// Shooter specific
 export interface Projectile extends GameObject {
   velocityY: number;
   velocityX: number;
