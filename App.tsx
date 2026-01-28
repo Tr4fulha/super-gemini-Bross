@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { GameMode, GameState, LevelInfo, LevelData, Player, Platform, Enemy, Coin, Goal, GameObject, PowerUp, Projectile, Star, Particle, MenuSection, Nebula, Planet, GraphicsQuality, GameSettings } from './types';
+import { GameMode, GameState, LevelInfo, LevelData, Player, Platform, Enemy, Coin, Goal, GameObject, PowerUp, Projectile, Star, Particle, MenuSection, GraphicsQuality, GameSettings } from './types';
 import { WALK_SPEED, JUMP_POWER, GRAVITY, FALL_GRAVITY_MULT, FRICTION, PREDEFINED_LEVELS } from './constants';
 import MobileControls from './components/MobileControls';
 
@@ -40,14 +40,14 @@ const TRANSLATIONS = {
     IN_DEV: "JOGO EM DESENVOLVIMENTO",
     CREATED_BY: "CRIADO POR TR4FULHA TEAM",
     START: "TOQUE PARA INICIAR",
-    V_LOG: "V2.0 - Protocolo Final",
-    LOG_1: "- Sistema de inimigos corrigido.",
-    LOG_2: "- Hangar de skins restaurado.",
-    LOG_3: "- Física de combate recalibrada.",
-    LOG_4: "- Tela de intro com branding Tr4fulha.",
-    LOG_5: "- Estabilidade da UI aprimorada.",
+    V_LOG: "V2.1 - Invasão Estelar",
+    LOG_1: "- 4 naves: Scout, Interceptor, Bomber e Heavy (Mísseis).",
+    LOG_2: "- 9 Power-ups: Slow-mo, EMP, Ghost, Triple Shot e mais.",
+    LOG_3: "- Sistema de explosões, partículas e feedback de dano.",
+    LOG_4: "- Física de voo recalibrada e novos comportamentos inimigos.",
+    LOG_5: "- Designs de naves pixelados e balanceamento de dano.",
     DEV: "Engenharia: Gemini Core",
-    ART: "Design: Pixel Syndicate",
+    ART: "Art: Pixel Syndicate",
     SOUND: "Frequência: Synth-8",
     SELECT_SHIP: "SELECIONE SUA NAVE"
   },
@@ -84,14 +84,14 @@ const TRANSLATIONS = {
     IN_DEV: "GAME IN DEVELOPMENT",
     CREATED_BY: "CREATED BY TR4FULHA TEAM",
     START: "TOUCH TO START",
-    V_LOG: "V2.0 - Final Protocol",
-    LOG_1: "- Enemy system fixed.",
-    LOG_2: "- Skin hangar restored.",
-    LOG_3: "- Combat physics recalibrated.",
-    LOG_4: "- Intro screen with Tr4fulha branding.",
-    LOG_5: "- UI stability enhanced.",
+    V_LOG: "V2.1 - Stellar Invasion",
+    LOG_1: "- 4 ships: Scout, Interceptor, Bomber, and Heavy (Missiles).",
+    LOG_2: "- 9 Power-ups: Slow-mo, EMP, Ghost, Triple Shot, and more.",
+    LOG_3: "- Explosion system, particles, and damage feedback.",
+    LOG_4: "- Calibrated flight physics and new enemy AI patterns.",
+    LOG_5: "- Pixel-art ship designs and damage balancing.",
     DEV: "Engineering: Gemini Core",
-    ART: "Design: Pixel Syndicate",
+    ART: "Art: Pixel Syndicate",
     SOUND: "Frequency: Synth-8",
     SELECT_SHIP: "SELECT YOUR SHIP"
   }
@@ -164,12 +164,14 @@ const App: React.FC = () => {
     x: dims.w / 2 - 15, y: dims.h - 100, width: 30, height: 30, velocityX: 0, velocityY: 0, isJumping: false, score: 0, lives: 3,
     direction: 'right', isLarge: false, invincibilityFrames: 0, powerLevel: 1, shieldFrames: 0, maxShieldFrames: 720,
     hasDrone: false, droneFrames: 0, maxDroneFrames: 0, tripleShotFrames: 0, maxTripleShotFrames: 1080, tilt: 0,
-    energy: 0, maxEnergy: 100, dashCooldown: 0, dashFrames: 0, scrapCount: 0
+    energy: 0, maxEnergy: 100, dashCooldown: 0, dashFrames: 0, scrapCount: 0,
+    damageBoostFrames: 0, slowMoFrames: 0, rapidFireFrames: 0, ghostFrames: 0, empCooldown: 0
   });
   
   const levelData = useRef<LevelData>({ platforms: [], enemies: [], coins: [], powerUps: [], goal: { x: 0, y: 0, width: 40, height: 100 }, playerStart: { x: 50, y: 300 } });
   const projectiles = useRef<Projectile[]>([]);
   const stars = useRef<Star[]>([]);
+  const particles = useRef<Particle[]>([]);
   const lastShotTime = useRef<number>(0);
 
   useEffect(() => {
@@ -217,10 +219,14 @@ const App: React.FC = () => {
     if (type === 'shoot') {
       osc.type = 'square'; osc.frequency.setValueAtTime(500, ctx.currentTime);
       osc.frequency.exponentialRampToValueAtTime(50, ctx.currentTime + 0.1);
-      gain.gain.setValueAtTime(0.08 * vol, ctx.currentTime);
+      gain.gain.setValueAtTime(0.06 * vol, ctx.currentTime);
     } else if (type === 'explosion') {
       osc.type = 'sawtooth'; osc.frequency.setValueAtTime(100, ctx.currentTime);
       osc.frequency.linearRampToValueAtTime(10, ctx.currentTime + 0.2);
+      gain.gain.setValueAtTime(0.12 * vol, ctx.currentTime);
+    } else if (type === 'powerup') {
+      osc.type = 'sine'; osc.frequency.setValueAtTime(400, ctx.currentTime);
+      osc.frequency.exponentialRampToValueAtTime(800, ctx.currentTime + 0.1);
       gain.gain.setValueAtTime(0.15 * vol, ctx.currentTime);
     }
     osc.start(); osc.stop(ctx.currentTime + 0.2);
@@ -229,16 +235,41 @@ const App: React.FC = () => {
   const spawnWave = useCallback((wave: number) => {
     const enemies: Enemy[] = [];
     setShooterWave(wave);
-    const cols = 6;
-    const px = 80;
-    const py = 60;
+    const cols = Math.min(6, 4 + Math.floor(wave / 2));
+    const px = 100;
+    const py = 70;
     const sx = (dims.w - (cols * px)) / 2;
+
     for (let r = 0; r < 3; r++) {
       for (let c = 0; c < cols; c++) {
+        let type: Enemy['type'] = 'interceptor';
+        let health = 2 + Math.floor(wave / 2);
+        let vx = 1.0 + (wave * 0.1);
+        let w = 34, h = 26;
+
+        const rand = Math.random();
+        if (rand < 0.25) {
+          type = 'scout';
+          health = 1;
+          vx *= 1.8;
+          w = 24; h = 20;
+        } else if (rand < 0.5) {
+          type = 'heavy';
+          health *= 3;
+          vx *= 0.6;
+          w = 50; h = 40;
+        } else if (rand < 0.7) {
+          type = 'bomber';
+          health *= 2;
+          vx *= 0.8;
+          w = 44; h = 34;
+        }
+
         enemies.push({
-          x: sx + c * px, y: -100 - (r * 80), width: 34, height: 26, velocityX: 1.2 + (wave * 0.1), velocityY: 0.5,
-          type: 'invader', range: 0, startX: 0, startY: 0, health: 1 + Math.floor(wave / 4),
-          targetX: sx + c * px, targetY: 60 + r * py, phase: 'entry', sineOffset: Math.random() * 6
+          x: sx + c * px, y: -150 - (r * 100), width: w, height: h, velocityX: vx, velocityY: 0.4,
+          type: type, range: 0, startX: 0, startY: 0, health: health,
+          targetX: sx + c * px, targetY: 60 + r * py, phase: 'entry', sineOffset: Math.random() * 6,
+          lastShotTime: Date.now()
         });
       }
     }
@@ -250,30 +281,80 @@ const App: React.FC = () => {
     ctx.translate(p.x + p.width / 2, p.y + p.height / 2);
     ctx.rotate(p.tilt);
     ctx.translate(-(p.x + p.width / 2), -(p.y + p.height / 2));
-    const color = { CORE: '#22d3ee', PHANTOM: '#d946ef', STRIKER: '#ef4444' }[skin];
     
+    // Status effects visuals
+    if (p.ghostFrames > 0) ctx.globalAlpha = 0.4 + Math.sin(Date.now() / 100) * 0.2;
+    
+    const color = { CORE: '#22d3ee', PHANTOM: '#d946ef', STRIKER: '#ef4444' }[skin];
+    const mainColor = p.damageBoostFrames > 0 ? '#fbbf24' : color;
+
     if (quality === 'LOW') {
-      ctx.fillStyle = color;
+      ctx.fillStyle = mainColor;
       ctx.fillRect(p.x + 5, p.y + 5, 20, 25);
       ctx.fillRect(p.x, p.y + 15, 30, 10);
-    } else if (quality === 'MEDIUM') {
-      ctx.fillStyle = color;
+    } else {
+      ctx.fillStyle = mainColor;
       ctx.beginPath();
       ctx.moveTo(p.x + 15, p.y);
       ctx.lineTo(p.x + 30, p.y + 30);
       ctx.lineTo(p.x + 15, p.y + 20);
       ctx.lineTo(p.x, p.y + 30);
       ctx.closePath(); ctx.fill();
-    } else {
-      const grad = ctx.createLinearGradient(p.x, p.y, p.x, p.y + 30);
-      grad.addColorStop(0, '#fff'); grad.addColorStop(0.5, color); grad.addColorStop(1, '#000');
-      ctx.fillStyle = grad;
-      ctx.shadowBlur = 10; ctx.shadowColor = color;
+
+      if (quality === 'HIGH') {
+        ctx.shadowBlur = 12; ctx.shadowColor = mainColor;
+        ctx.fillStyle = 'rgba(255,255,255,0.6)'; ctx.fillRect(p.x + 12, p.y + 8, 6, 6);
+      }
+    }
+
+    if (p.shieldFrames > 0) {
+      ctx.strokeStyle = '#5de2ef';
+      ctx.lineWidth = 2;
       ctx.beginPath();
-      ctx.moveTo(p.x + 15, p.y);
-      ctx.quadraticCurveTo(p.x + 35, p.y + 35, p.x + 15, p.y + 25);
-      ctx.quadraticCurveTo(p.x - 5, p.y + 35, p.x + 15, p.y);
-      ctx.fill();
+      ctx.arc(p.x + p.width / 2, p.y + p.height / 2, p.width * 0.8, 0, Math.PI * 2);
+      ctx.stroke();
+    }
+
+    ctx.restore();
+  };
+
+  const drawEnemyShip = (ctx: CanvasRenderingContext2D, e: Enemy, quality: GraphicsQuality) => {
+    ctx.save();
+    const cx = e.x + e.width / 2;
+    const cy = e.y + e.height / 2;
+    ctx.translate(cx, cy);
+
+    ctx.fillStyle = e.hitFlash ? '#fff' : '#f43f5e';
+    if (e.type === 'scout') {
+      ctx.fillStyle = e.hitFlash ? '#fff' : '#10b981';
+      ctx.beginPath();
+      ctx.moveTo(0, 10); ctx.lineTo(10, -10); ctx.lineTo(0, -5); ctx.lineTo(-10, -10);
+      ctx.closePath(); ctx.fill();
+    } else if (e.type === 'interceptor') {
+      ctx.fillStyle = e.hitFlash ? '#fff' : '#f43f5e';
+      ctx.fillRect(-15, -12, 5, 24);
+      ctx.fillRect(10, -12, 5, 24);
+      ctx.fillRect(-10, -2, 20, 4);
+      ctx.beginPath(); ctx.arc(0, 0, 6, 0, Math.PI * 2); ctx.fill();
+    } else if (e.type === 'heavy') {
+      ctx.fillStyle = e.hitFlash ? '#fff' : '#ea580c';
+      ctx.fillRect(-25, -20, 50, 30);
+      ctx.fillStyle = '#451a03';
+      ctx.fillRect(-10, 5, 5, 10);
+      ctx.fillRect(5, 5, 5, 10);
+      ctx.fillStyle = e.hitFlash ? '#fff' : '#78350f';
+      ctx.fillRect(-20, -15, 40, 5);
+    } else if (e.type === 'bomber') {
+      ctx.fillStyle = e.hitFlash ? '#fff' : '#8b5cf6';
+      ctx.beginPath();
+      ctx.moveTo(0, 15); ctx.lineTo(22, -10); ctx.lineTo(10, -5); ctx.lineTo(-10, -5); ctx.lineTo(-22, -10);
+      ctx.closePath(); ctx.fill();
+      ctx.fillStyle = '#1e1b4b';
+      ctx.beginPath(); ctx.arc(0, -2, 8, 0, Math.PI * 2); ctx.fill();
+    }
+    
+    if (quality === 'HIGH') {
+      ctx.shadowBlur = 8; ctx.shadowColor = ctx.fillStyle as string;
     }
     ctx.restore();
   };
@@ -287,26 +368,62 @@ const App: React.FC = () => {
     if (p.invincibilityFrames % 10 < 5) drawShip(ctx, p, settings.quality, selectedSkin);
     
     levelData.current.enemies.forEach(e => {
-      ctx.fillStyle = e.hitFlash ? '#fff' : '#f43f5e';
-      ctx.beginPath();
-      ctx.arc(e.x + e.width / 2, e.y + e.height / 2, e.width / 2, 0, Math.PI * 2);
-      ctx.fill();
-      // Glow for high quality
-      if (settings.quality === 'HIGH') {
-        ctx.strokeStyle = '#fff'; ctx.lineWidth = 1; ctx.stroke();
-      }
+      drawEnemyShip(ctx, e, settings.quality);
     });
     
-    projectiles.current.forEach(pr => {
-      ctx.fillStyle = pr.color; ctx.fillRect(pr.x, pr.y, pr.width, pr.height);
+    levelData.current.powerUps.forEach(pu => {
+      ctx.save();
+      const colors: Record<string, string> = {
+        life: '#f43f5e', shield: '#0ea5e9', triple_shot: '#fbbf24',
+        power_boost: '#f97316', slow_mo: '#8b5cf6', rapid_fire: '#d946ef',
+        emp: '#ffffff', ghost: '#94a3b8', scrap: '#10b981'
+      };
+      ctx.fillStyle = colors[pu.type] || '#fff';
+      ctx.beginPath();
+      ctx.arc(pu.x + pu.width/2, pu.y + pu.height/2, pu.width/2, 0, Math.PI*2);
+      ctx.fill();
+      ctx.strokeStyle = '#fff'; ctx.lineWidth = 1; ctx.stroke();
+      ctx.restore();
     });
+
+    projectiles.current.forEach(pr => {
+      ctx.fillStyle = pr.color;
+      if (pr.isMissile) {
+        ctx.fillRect(pr.x - 2, pr.y, 8, 16);
+        ctx.fillStyle = '#f59e0b';
+        ctx.fillRect(pr.x, pr.y + 16, 4, 4 + Math.random() * 8);
+      } else {
+        ctx.fillRect(pr.x, pr.y, pr.width, pr.height);
+      }
+    });
+
+    particles.current.forEach((part, i) => {
+      ctx.globalAlpha = part.life;
+      ctx.fillStyle = part.color;
+      ctx.fillRect(part.x, part.y, part.size, part.size);
+      part.x += part.vx; part.y += part.vy;
+      part.life -= part.decay || 0.02;
+      if (part.life <= 0) particles.current.splice(i, 1);
+    });
+    ctx.globalAlpha = 1;
+  };
+
+  const createExplosion = (x: number, y: number, color: string, count: number = 10) => {
+    for (let i = 0; i < count; i++) {
+      particles.current.push({
+        x, y, vx: (Math.random() - 0.5) * 6, vy: (Math.random() - 0.5) * 6,
+        life: 1.0, color: color, size: 2 + Math.random() * 4, decay: 0.02 + Math.random() * 0.03
+      });
+    }
   };
 
   const updateShooter = useCallback(() => {
     if (gameState !== 'PLAYING') return;
     const p = player.current;
     
-    // Physics
+    const isSlowMo = p.slowMoFrames > 0;
+    const timeScale = isSlowMo ? 0.4 : 1.0;
+
     const moveLeft = keysPressed.current['ArrowLeft'] || keysPressed.current['a'];
     const moveRight = keysPressed.current['ArrowRight'] || keysPressed.current['d'];
     if (moveLeft) { p.velocityX = Math.max(p.velocityX - 0.7, -7); p.tilt = -0.2; }
@@ -314,41 +431,73 @@ const App: React.FC = () => {
     else { p.velocityX *= 0.88; p.tilt *= 0.8; }
     p.x += p.velocityX; p.x = Math.max(0, Math.min(dims.w - p.width, p.x));
 
-    stars.current.forEach(s => { s.y += s.speed; if (s.y > dims.h) s.y = -10; });
+    stars.current.forEach(s => { s.y += s.speed * timeScale; if (s.y > dims.h) s.y = -10; });
 
-    // Manual Fire (Space Bar)
-    if (keysPressed.current[' '] && Date.now() - lastShotTime.current > 180) {
-      projectiles.current.push({ x: p.x + 13, y: p.y, width: 4, height: 15, velocityX: 0, velocityY: -10, owner: 'player', color: '#5de2ef' });
+    const shotDelay = p.rapidFireFrames > 0 ? 80 : 200;
+    if (keysPressed.current[' '] && Date.now() - lastShotTime.current > shotDelay) {
+      const damage = p.damageBoostFrames > 0 ? 3 : 1;
+      projectiles.current.push({ x: p.x + 13, y: p.y, width: 4, height: 15, velocityX: 0, velocityY: -10, owner: 'player', color: '#5de2ef', damage });
+      if (p.tripleShotFrames > 0) {
+        projectiles.current.push({ x: p.x, y: p.y + 10, width: 4, height: 15, velocityX: -2, velocityY: -9, owner: 'player', color: '#fbbf24', damage });
+        projectiles.current.push({ x: p.x + 26, y: p.y + 10, width: 4, height: 15, velocityX: 2, velocityY: -9, owner: 'player', color: '#fbbf24', damage });
+      }
       playSound('shoot'); lastShotTime.current = Date.now();
     }
 
-    // Enemies patterns
+    if (p.shieldFrames > 0) p.shieldFrames--;
+    if (p.tripleShotFrames > 0) p.tripleShotFrames--;
+    if (p.damageBoostFrames > 0) p.damageBoostFrames--;
+    if (p.slowMoFrames > 0) p.slowMoFrames--;
+    if (p.rapidFireFrames > 0) p.rapidFireFrames--;
+    if (p.ghostFrames > 0) p.ghostFrames--;
+    if (p.invincibilityFrames > 0) p.invincibilityFrames--;
+
     levelData.current.enemies.forEach((e, ei) => {
       if (e.phase === 'entry') {
-        e.x += (e.targetX! - e.x) * 0.05; e.y += (e.targetY! - e.y) * 0.05;
+        e.x += (e.targetX! - e.x) * 0.05 * timeScale; e.y += (e.targetY! - e.y) * 0.05 * timeScale;
         if (Math.abs(e.x - e.targetX!) < 3) e.phase = 'active';
       } else {
-        e.sineOffset! += 0.04;
-        e.x += Math.sin(e.sineOffset!) * 1.5;
-        e.y += 0.2; // Slowly move down
+        e.sineOffset! += 0.04 * timeScale;
+        e.x += Math.sin(e.sineOffset!) * 1.5 * timeScale;
+        e.y += e.velocityY * timeScale;
       }
 
-      // Check bullet hits
+      let fireChance = 0.005;
+      if (e.type === 'scout') fireChance = 0.02;
+      else if (e.type === 'bomber') fireChance = 0.01;
+      else if (e.type === 'heavy') fireChance = 0.003;
+
+      if (Math.random() < fireChance * timeScale && e.y > 0) {
+        if (e.type === 'heavy') {
+           projectiles.current.push({ x: e.x + e.width/2, y: e.y + e.height, width: 8, height: 16, velocityX: 0, velocityY: 4, owner: 'enemy', color: '#ea580c', damage: 2, isMissile: true });
+        } else {
+           projectiles.current.push({ x: e.x + e.width/2, y: e.y + e.height, width: 6, height: 12, velocityX: 0, velocityY: 6, owner: 'enemy', color: '#f43f5e', damage: 1 });
+        }
+      }
+
       projectiles.current.forEach((pr, pi) => {
         if (pr.owner === 'player' && pr.x < e.x + e.width && pr.x + pr.width > e.x && pr.y < e.y + e.height && pr.y + pr.height > e.y) {
-          e.health--; e.hitFlash = 5; projectiles.current.splice(pi, 1);
+          e.health -= pr.damage; e.hitFlash = 5; projectiles.current.splice(pi, 1);
           if (e.health <= 0) {
-            playSound('explosion'); levelData.current.enemies.splice(ei, 1);
-            setScore(s => s + 150);
+            playSound('explosion'); createExplosion(e.x + e.width/2, e.y + e.height/2, '#f43f5e', 15);
+            levelData.current.enemies.splice(ei, 1);
+            setScore(s => s + (e.type === 'heavy' ? 500 : 150));
+            if (Math.random() < 0.2) {
+              const types: PowerUp['type'][] = ['life', 'shield', 'triple_shot', 'power_boost', 'slow_mo', 'rapid_fire', 'emp', 'ghost'];
+              const type = types[Math.floor(Math.random() * types.length)];
+              levelData.current.powerUps.push({ x: e.x, y: e.y, width: 20, height: 20, collected: false, type, velocityY: 1.5 });
+            }
           }
         }
       });
       
-      // Check collision with player
       if (e.x < p.x + p.width && e.x + e.width > p.x && e.y < p.y + p.height && e.y + e.height > p.y) {
-        if (p.invincibilityFrames === 0) {
-          setLives(l => l - 1); p.invincibilityFrames = 100; playSound('explosion');
-          if (lives <= 1) setGameState('GAME_OVER');
+        if (p.invincibilityFrames === 0 && p.ghostFrames === 0) {
+          if (p.shieldFrames > 0) { p.shieldFrames = 0; p.invincibilityFrames = 60; }
+          else { setLives(l => l - 1); p.invincibilityFrames = 100; }
+          playSound('explosion'); createExplosion(p.x, p.y, '#f43f5e', 20);
+          if (lives <= 1 && p.shieldFrames <= 0) setGameState('GAME_OVER');
+          levelData.current.enemies.splice(ei, 1);
         }
       }
 
@@ -356,9 +505,44 @@ const App: React.FC = () => {
       if (e.y > dims.h) levelData.current.enemies.splice(ei, 1);
     });
 
-    if (levelData.current.enemies.length === 0) spawnWave(shooterWave + 1);
+    projectiles.current.forEach((pr, i) => { 
+      pr.y += pr.velocityY * (pr.owner === 'enemy' ? timeScale : 1.0); 
+      pr.x += pr.velocityX * (pr.owner === 'enemy' ? timeScale : 1.0); 
+      
+      if (pr.owner === 'enemy' && pr.x < p.x + p.width && pr.x + pr.width > p.x && pr.y < p.y + p.height && pr.y + pr.height > p.y) {
+        if (p.invincibilityFrames === 0 && p.ghostFrames === 0) {
+          if (p.shieldFrames > 0) { p.shieldFrames = 0; p.invincibilityFrames = 60; }
+          else { setLives(l => l - pr.damage); p.invincibilityFrames = 100; }
+          projectiles.current.splice(i, 1);
+          playSound('explosion');
+          if (lives - pr.damage <= 0 && p.shieldFrames <= 0) setGameState('GAME_OVER');
+        }
+      }
+      if (pr.y < -50 || pr.y > dims.h + 50) projectiles.current.splice(i, 1);
+    });
 
-    projectiles.current.forEach((pr, i) => { pr.y += pr.velocityY; if (pr.y < -30 || pr.y > dims.h + 30) projectiles.current.splice(i, 1); });
+    levelData.current.powerUps.forEach((pu, i) => {
+      pu.y += pu.velocityY * timeScale;
+      if (pu.x < p.x + p.width && pu.x + pu.width > p.x && pu.y < p.y + p.height && pu.y + pu.height > p.y) {
+        playSound('powerup');
+        if (pu.type === 'life') setLives(l => Math.min(5, l + 1));
+        else if (pu.type === 'shield') p.shieldFrames = 600;
+        else if (pu.type === 'triple_shot') p.tripleShotFrames = 600;
+        else if (pu.type === 'power_boost') p.damageBoostFrames = 500;
+        else if (pu.type === 'slow_mo') p.slowMoFrames = 400;
+        else if (pu.type === 'rapid_fire') p.rapidFireFrames = 400;
+        else if (pu.type === 'ghost') p.ghostFrames = 300;
+        else if (pu.type === 'emp') {
+          createExplosion(dims.w/2, dims.h/2, '#fff', 50);
+          projectiles.current = projectiles.current.filter(proj => proj.owner === 'player');
+          levelData.current.enemies.forEach(en => { en.health -= 2; en.hitFlash = 10; });
+        }
+        levelData.current.powerUps.splice(i, 1);
+      }
+      if (pu.y > dims.h) levelData.current.powerUps.splice(i, 1);
+    });
+
+    if (levelData.current.enemies.length === 0) spawnWave(shooterWave + 1);
 
     renderShooter();
     requestRef.current = requestAnimationFrame(updateShooter);
@@ -368,7 +552,9 @@ const App: React.FC = () => {
     initAudio(); setGameState('PLAYING'); setGameMode('SHOOTER'); setScore(0); setLives(3); setShooterWave(1);
     setIsSelectingSkin(false);
     projectiles.current = [];
-    player.current = { ...player.current, x: dims.w / 2 - 15, y: dims.h - 100, velocityX: 0, velocityY: 0 };
+    levelData.current.powerUps = [];
+    player.current = { ...player.current, x: dims.w / 2 - 15, y: dims.h - 100, velocityX: 0, velocityY: 0, 
+      shieldFrames: 0, tripleShotFrames: 0, damageBoostFrames: 0, slowMoFrames: 0, rapidFireFrames: 0, ghostFrames: 0, invincibilityFrames: 0 };
     const s: Star[] = []; for (let i = 0; i < 60; i++) s.push({ x: Math.random() * dims.w, y: Math.random() * dims.h, size: Math.random() * 2, speed: 1 + Math.random() * 2, opacity: Math.random() });
     stars.current = s; spawnWave(1);
     startMusic();
@@ -403,7 +589,6 @@ const App: React.FC = () => {
     <div className="relative w-full h-screen bg-[#020617] flex items-center justify-center overflow-hidden touch-none select-none font-sans">
       <canvas ref={canvasRef} width={dims.w} height={dims.h} className="absolute inset-0 w-full h-full block" style={{ imageRendering: 'pixelated' }} />
 
-      {/* TELA DE INTRODUÇÃO */}
       {gameState === 'INTRO' && (
         <div className="absolute inset-0 z-[200] flex flex-col items-center justify-center bg-[#020617] cursor-pointer" onClick={() => setGameState('START')}>
           <div className="animate-pulse flex flex-col items-center mb-10">
@@ -420,7 +605,6 @@ const App: React.FC = () => {
         </div>
       )}
 
-      {/* MENU PRINCIPAL */}
       {gameState === 'START' && menuSection === 'MAIN' && !isSelectingSkin && (
         <div className="absolute inset-0 z-50 flex flex-col items-center justify-center bg-[#0d141f]/60 backdrop-blur-md">
           <h1 className="text-5xl md:text-8xl font-black text-[#5de2ef] italic mb-12 uppercase text-center drop-shadow-2xl">
@@ -436,7 +620,6 @@ const App: React.FC = () => {
         </div>
       )}
 
-      {/* CONFIGURAÇÕES / OPÇÕES */}
       {menuSection === 'SETTINGS' && (
         <div className="w-full max-w-4xl max-h-[90vh] overflow-y-auto bg-[#1a2e35] border-4 border-[#5de2ef] p-6 md:p-10 animate-in slide-in-from-right-10 duration-200 shadow-2xl z-[150]">
           <div className="flex justify-between items-center mb-8 border-b-2 border-[#5de2ef]/20 pb-4">
@@ -508,7 +691,6 @@ const App: React.FC = () => {
         </div>
       )}
 
-      {/* SELEÇÃO DE MISSÃO / JOGO */}
       {menuSection === 'PLAY' && gameState === 'START' && !isSelectingSkin && (
         <div className="absolute inset-0 z-50 flex flex-col items-center justify-center bg-[#0d141f]/80 backdrop-blur-xl">
           <h2 className="text-4xl font-black text-[#5de2ef] mb-12 uppercase italic tracking-tighter drop-shadow-lg">MISSÕES DISPONÍVEIS</h2>
@@ -516,14 +698,13 @@ const App: React.FC = () => {
             <div onClick={() => setIsSelectingSkin(true)} className="w-80 h-40 bg-[#1a2e35] border-4 border-[#5de2ef] p-6 cursor-pointer hover:scale-105 transition-all flex flex-col justify-end group shadow-2xl relative overflow-hidden">
                <div className="absolute top-0 right-0 p-2 bg-[#5de2ef] text-black font-black text-[9px] uppercase">Unlocked</div>
                <div className="text-[#5de2ef] font-black uppercase text-3xl group-hover:tracking-widest transition-all">STAR GEMINI</div>
-               <div className="text-white/40 text-[10px] uppercase font-bold tracking-[0.2em]">Ondas de Combate v2.0</div>
+               <div className="text-white/40 text-[10px] uppercase font-bold tracking-[0.2em]">Ondas de Combate v2.1</div>
             </div>
           </div>
           <PixelButton label={t.BACK} onClick={() => setMenuSection('MAIN')} width="w-48" className="mt-12" />
         </div>
       )}
 
-      {/* HANGAR DE SKINS */}
       {isSelectingSkin && (
         <div className="absolute inset-0 z-[160] flex flex-col items-center justify-center bg-[#0d141f]/95 backdrop-blur-2xl p-4">
           <h2 className="text-4xl md:text-6xl font-black text-[#5de2ef] mb-12 uppercase italic tracking-tighter">{t.SELECT_SHIP}</h2>
@@ -551,7 +732,6 @@ const App: React.FC = () => {
         </div>
       )}
 
-      {/* INTERFACE DE JOGO */}
       {(gameState === 'PLAYING' || gameState === 'PAUSED') && (
         <>
           <div className="absolute top-0 left-0 right-0 p-4 md:p-6 flex justify-between items-start pointer-events-none z-[60] safe-area-inset">
@@ -574,7 +754,7 @@ const App: React.FC = () => {
           </div>
           {gameState === 'PAUSED' && (
             <div className="absolute inset-0 z-[180] bg-black/60 backdrop-blur-md flex flex-col items-center justify-center">
-              <h2 className="text-6xl md:text-8xl font-black text-white italic uppercase tracking-tighter mb-10 drop-shadow-2xl">PAUSA</h2>
+              <h2 className="text-6xl md:text-8xl font-black text-white italic uppercase tracking-tighter mb-10 drop-shadow-2xl">{t.PAUSE}</h2>
               <PixelButton label={t.RESUME} onClick={() => setGameState('PLAYING')} />
               <PixelButton label="MENU" onClick={() => { setGameState('START'); setMenuSection('MAIN'); setIsSelectingSkin(false); }} className="mt-4 opacity-60" />
             </div>
@@ -582,7 +762,6 @@ const App: React.FC = () => {
         </>
       )}
 
-      {/* GAME OVER */}
       {gameState === 'GAME_OVER' && (
         <div className="absolute inset-0 z-[190] bg-red-950/80 backdrop-blur-xl flex flex-col items-center justify-center p-6 text-center">
           <h2 className="text-6xl md:text-9xl font-black text-white italic uppercase tracking-tighter mb-2">{t.VESSEL_DOWN}</h2>
@@ -599,7 +778,6 @@ const App: React.FC = () => {
 
       {gameState === 'PLAYING' && <MobileControls onPress={(k, p) => { initAudio(); keysPressed.current[k] = p; keysPressed.current[k.toLowerCase()] = p; }} mode="SHOOTER" />}
       
-      {/* SCANLINES OVERLAY */}
       <div className="absolute inset-0 pointer-events-none opacity-[0.05] bg-[linear-gradient(rgba(18,16,16,0)_50%,rgba(0,0,0,0.25)_50%),linear-gradient(90deg,rgba(255,0,0,0.06),rgba(0,255,0,0.02),rgba(0,0,255,0.06))] bg-[length:100%_4px,3px_100%] z-[300]"></div>
     </div>
   );

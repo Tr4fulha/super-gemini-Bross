@@ -49,6 +49,12 @@ export interface Player extends GameObject {
   dashCooldown: number;
   dashFrames: number;
   scrapCount: number;
+  // New status for additional powerups
+  damageBoostFrames: number;
+  slowMoFrames: number;
+  rapidFireFrames: number;
+  ghostFrames: number;
+  empCooldown: number;
 }
 
 export interface Platform extends GameObject {
@@ -62,7 +68,7 @@ export interface Platform extends GameObject {
 }
 
 export interface PowerUp extends GameObject {
-  type: 'mushroom' | 'triple_shot' | 'shield' | 'drone' | 'life' | 'scrap';
+  type: 'life' | 'shield' | 'triple_shot' | 'power_boost' | 'slow_mo' | 'rapid_fire' | 'emp' | 'ghost' | 'scrap';
   collected: boolean;
   velocityY?: number;
 }
@@ -70,13 +76,10 @@ export interface PowerUp extends GameObject {
 export interface Enemy extends GameObject {
   velocityX: number;
   velocityY: number;
-  type: 'patrol' | 'fly' | 'stalker' | 'jumper' | 'ufo' | 'invader' | 'scout' | 'bomber' | 'boss' | 'heavy' | 'fast' | 'asteroid';
+  type: 'scout' | 'interceptor' | 'heavy' | 'bomber';
   range: number;
   startX: number;
   startY: number;
-  isAggro?: boolean;
-  lastJumpTime?: number;
-  isGrounded?: boolean;
   health: number;
   maxHealth?: number;
   phase?: 'entry' | 'active';
@@ -85,7 +88,7 @@ export interface Enemy extends GameObject {
   sineOffset?: number;
   hitFlash?: number;
   rotation?: number;
-  points?: {x: number, y: number}[];
+  lastShotTime?: number;
 }
 
 export interface Coin extends GameObject {
@@ -108,6 +111,8 @@ export interface Projectile extends GameObject {
   velocityX: number;
   owner: 'player' | 'enemy' | 'drone';
   color: string;
+  damage: number;
+  isMissile?: boolean;
 }
 
 export interface Star {
@@ -116,23 +121,6 @@ export interface Star {
   size: number;
   speed: number;
   opacity: number;
-}
-
-export interface Nebula {
-  x: number;
-  y: number;
-  size: number;
-  color: string;
-  speed: number;
-}
-
-export interface Planet {
-  x: number;
-  y: number;
-  size: number;
-  color: string;
-  speed: number;
-  type: number;
 }
 
 export interface Particle {
