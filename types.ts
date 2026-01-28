@@ -1,7 +1,16 @@
 
 export type GameMode = 'MENU' | 'PLATFORMER' | 'SHOOTER';
-export type GameState = 'START' | 'PLAYING' | 'PAUSED' | 'GAME_OVER' | 'WIN' | 'GENERATING';
+export type GameState = 'INTRO' | 'START' | 'PLAYING' | 'PAUSED' | 'GAME_OVER' | 'WIN' | 'GENERATING';
 export type MenuSection = 'MAIN' | 'PLAY' | 'SETTINGS' | 'PROFILE' | 'ABOUT';
+export type GraphicsQuality = 'LOW' | 'MEDIUM' | 'HIGH';
+
+export interface GameSettings {
+  masterVolume: number;
+  sfxVolume: number;
+  musicVolume: number;
+  quality: GraphicsQuality;
+  language: 'PT' | 'EN';
+}
 
 export interface LevelInfo {
   name: string;
@@ -76,7 +85,7 @@ export interface Enemy extends GameObject {
   sineOffset?: number;
   hitFlash?: number;
   rotation?: number;
-  points?: {x: number, y: number}[]; // Formato irregular do asteroide
+  points?: {x: number, y: number}[];
 }
 
 export interface Coin extends GameObject {
