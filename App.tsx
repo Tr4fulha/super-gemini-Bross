@@ -10,7 +10,12 @@ const App: React.FC = () => {
   const [gameMode, setGameMode] = useState<GameMode>('MENU');
   const [gameState, setGameState] = useState<GameState>('START');
   const [menuSection, setMenuSection] = useState<MenuSection>('MAIN');
-  const [selectedSkin, setSelectedSkin] = useState<ShooterSkin>('CORE');
+  
+  // Persistência da Skin Selecionada
+  const [selectedSkin, setSelectedSkin] = useState<ShooterSkin>(() => {
+    return (localStorage.getItem('gemini_selected_skin') as ShooterSkin) || 'CORE';
+  });
+  
   const [isSelectingSkin, setIsSelectingSkin] = useState(false);
   
   const [score, setScore] = useState(0);
@@ -56,6 +61,18 @@ const App: React.FC = () => {
   const screenShake = useRef(0);
   const deathTimer = useRef<number>(0);
   const specialEffectTimer = useRef(0);
+
+  // Sistema de Persistência: Recorde e Skin
+  useEffect(() => {
+    if (score > highScore) {
+      setHighScore(score);
+      localStorage.setItem('gemini_highscore', score.toString());
+    }
+  }, [score, highScore]);
+
+  useEffect(() => {
+    localStorage.setItem('gemini_selected_skin', selectedSkin);
+  }, [selectedSkin]);
 
   useEffect(() => {
     const handleResize = () => setDims({ w: window.innerWidth, h: window.innerHeight });
@@ -210,10 +227,12 @@ const App: React.FC = () => {
     }
 
     if (screenShake.current > 0) screenShake.current *= 0.85;
+    
+    // Controles de teclado robustos para PC
     const moveLeft = keysPressed.current['ArrowLeft'] || keysPressed.current['a'];
     const moveRight = keysPressed.current['ArrowRight'] || keysPressed.current['d'];
-    const doDash = keysPressed.current['Shift'] && p.dashCooldown <= 0;
-    const doSpecial = keysPressed.current['x'] && p.energy >= 100;
+    const doDash = (keysPressed.current['Shift'] || keysPressed.current['shift']) && p.dashCooldown <= 0;
+    const doSpecial = (keysPressed.current['x'] || keysPressed.current['X']) && p.energy >= 100;
 
     if (doDash) {
       p.dashFrames = 15; p.dashCooldown = 90; p.invincibilityFrames = 15;
@@ -469,12 +488,14 @@ const App: React.FC = () => {
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       initAudio();
-      if ([' ', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.key)) {
+      // Mapeamento de teclas para PC: Adicionado Shift e X explicitamente
+      if ([' ', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Shift', 'x', 'X'].includes(e.key)) {
         e.preventDefault();
       }
-      const key = e.key.toLowerCase();
-      keysPressed.current[e.key] = true;
-      keysPressed.current[key] = true; 
+      const key = e.key;
+      const keyLower = e.key.toLowerCase();
+      keysPressed.current[key] = true;
+      keysPressed.current[keyLower] = true; 
 
       if (e.key === 'Escape') {
         setGameState(prev => prev === 'PLAYING' ? 'PAUSED' : prev === 'PAUSED' ? 'PLAYING' : prev);
@@ -494,8 +515,8 @@ const App: React.FC = () => {
   }, []);
 
   const SidebarButton = ({ label, active, onClick, icon }: any) => (
-    <button onClick={onClick} className={`w-full text-left px-6 py-4 md:rounded-xl flex items-center gap-4 transition-all duration-300 border-l-4 md:border-l-4 md:border-t-0 border-t-0 ${active ? 'bg-cyan-500/10 border-cyan-400 text-cyan-400' : 'bg-transparent border-transparent text-slate-400 hover:bg-white/5'}`}>
-      <span className="text-xl">{icon}</span><span className="font-bold tracking-wider uppercase text-xs md:text-sm">{label}</span>
+    <button onClick={onClick} className={`w-full text-left px-6 py-5 md:rounded-xl flex items-center gap-4 transition-all duration-300 border-l-4 md:border-l-4 md:border-t-0 border-t-0 ${active ? 'bg-cyan-500/20 border-cyan-400 text-cyan-400' : 'bg-transparent border-transparent text-slate-400 hover:bg-white/5'}`}>
+      <span className="text-xl md:text-2xl">{icon}</span><span className="font-bold tracking-wider uppercase text-xs md:text-sm">{label}</span>
     </button>
   );
 
@@ -605,7 +626,11 @@ const App: React.FC = () => {
             </div>
             
             <div className="flex flex-col items-end gap-2 md:gap-3">
-              <div className="bg-[#080d1a]/90 backdrop-blur-xl px-4 md:px-8 py-2 md:py-3 rounded-xl md:rounded-2xl border border-white/10 text-white font-mono shadow-2xl flex flex-col items-end leading-none"><span className="text-[8px] md:text-[11px] text-slate-500 uppercase font-black tracking-widest mb-1">Score</span><span className="text-base md:text-2xl font-black tracking-tighter">{score.toString().padStart(6, '0')}</span></div>
+              <div className="bg-[#080d1a]/90 backdrop-blur-xl px-4 md:px-8 py-2 md:py-3 rounded-xl md:rounded-2xl border border-white/10 text-white font-mono shadow-2xl flex flex-col items-end leading-none">
+                <span className="text-[8px] md:text-[11px] text-slate-500 uppercase font-black tracking-widest mb-1">Score</span>
+                <span className="text-base md:text-2xl font-black tracking-tighter">{score.toString().padStart(6, '0')}</span>
+                {score > 0 && score === highScore && <span className="text-[8px] text-cyan-400 font-bold animate-pulse">NOVO RECORDE!</span>}
+              </div>
               <div className="flex flex-col gap-1.5"><ActiveBuff type="Escudo" frames={player.current.shieldFrames} max={DURATION_SHIELD} /><ActiveBuff type="Canhão" frames={player.current.tripleShotFrames} max={DURATION_TRIPLE} /></div>
             </div>
           </div>
@@ -623,7 +648,11 @@ const App: React.FC = () => {
       {(gameState === 'GAME_OVER' || gameState === 'WIN') && (
          <div className={`absolute inset-0 z-[100] flex flex-col items-center justify-center p-6 md:p-8 backdrop-blur-2xl animate-in zoom-in fade-in duration-500 ${gameState === 'WIN' ? 'bg-emerald-950/90' : 'bg-red-950/90'}`}>
             <h2 className="text-5xl md:text-8xl font-black text-white italic mb-4 uppercase tracking-tighter drop-shadow-2xl text-center">{gameState === 'WIN' ? 'MISSÃO CUMPRIDA' : 'NAVE ABATIDA'}</h2>
-            <div className="bg-black/30 px-8 md:px-12 py-4 md:py-6 rounded-3xl mb-8 md:mb-16 border border-white/10 shadow-2xl text-center"><p className="text-white/60 font-black uppercase text-[10px] md:text-sm tracking-[0.4em] mb-2">SCORE FINAL</p><p className="text-4xl md:text-6xl font-mono font-black text-white drop-shadow-md">{score}</p></div>
+            <div className="bg-black/30 px-8 md:px-12 py-4 md:py-6 rounded-3xl mb-8 md:mb-16 border border-white/10 shadow-2xl text-center">
+              <p className="text-white/60 font-black uppercase text-[10px] md:text-sm tracking-[0.4em] mb-2">SCORE FINAL</p>
+              <p className="text-4xl md:text-6xl font-mono font-black text-white drop-shadow-md">{score}</p>
+              {score >= highScore && score > 0 && <p className="text-cyan-400 font-bold mt-2 animate-bounce uppercase text-xs">RECORDE SALVO!</p>}
+            </div>
             <div className="flex flex-col md:flex-row gap-4 md:gap-6 w-full max-w-xs md:max-w-none justify-center">
               <button onClick={() => { setGameMode('MENU'); setGameState('START'); setMenuSection('MAIN'); setIsSelectingSkin(false); }} className="px-10 py-4 md:py-5 bg-white text-black font-black rounded-full italic hover:scale-110 active:scale-90 transition-all shadow-2xl uppercase tracking-tight text-lg md:text-xl">Menu</button>
               <button onClick={() => { initAudio(); if (gameMode === 'PLATFORMER') startPlatformer(currentLevelIdx); else initShooter(); }} className="px-10 py-4 md:py-5 bg-black/40 text-white border-2 border-white/20 font-black rounded-full italic hover:scale-110 active:scale-90 transition-all shadow-2xl uppercase tracking-tight text-lg md:text-xl">Reiniciar</button>
