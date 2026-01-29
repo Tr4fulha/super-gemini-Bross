@@ -9,6 +9,7 @@ const FRICTION = 0.92;
 const ACCELERATION = 0.8;
 const DASH_POWER = 2.5;
 const MAX_PARTICLES = 100; // Performance limit
+const COMBO_TIME_LIMIT = 180; // 3 seconds at 60fps
 
 const TRANSLATIONS = {
   PT: {
@@ -74,7 +75,8 @@ const App: React.FC = () => {
     invincibilityFrames: 0, shieldFrames: 0, maxShieldFrames: 600, tilt: 0,
     dashCooldown: 0, dashFrames: 0, slowMoFrames: 0, rapidFireFrames: 0,
     damageBoostFrames: 0, speedBoostFrames: 0, magnetFrames: 0, deathTimer: 0,
-    abilityCharge: 0, scrapCount: 0, powerLevel: 1
+    abilityCharge: 0, scrapCount: 0, powerLevel: 1,
+    comboCount: 0, comboTimer: 0, comboMultiplier: 1
   });
   
   const levelData = useRef<LevelData>({ enemies: [], powerUps: [], projectiles: [], particles: [] });
@@ -105,6 +107,9 @@ const App: React.FC = () => {
       } else if (type === 'dash') {
         osc.type = 'triangle'; osc.frequency.setValueAtTime(200, now); osc.frequency.linearRampToValueAtTime(50, now + 0.2);
         gain.gain.setValueAtTime(0.1 * vol, now); osc.stop(now + 0.2);
+      } else if (type === 'combo') {
+        osc.type = 'triangle'; osc.frequency.setValueAtTime(440, now); osc.frequency.linearRampToValueAtTime(880, now + 0.1);
+        gain.gain.setValueAtTime(0.05 * vol, now); osc.stop(now + 0.1);
       }
       osc.start();
     } catch (e) {
@@ -330,6 +335,16 @@ const App: React.FC = () => {
     if (p.magnetFrames > 0) p.magnetFrames--;
     if (p.shieldFrames > 0) p.shieldFrames--;
     if (p.abilityCharge < 100) p.abilityCharge += 0.1;
+    
+    // --- COMBO LOGIC ---
+    if (p.comboTimer > 0) {
+      p.comboTimer -= timeScale;
+      if (p.comboTimer <= 0) {
+        p.comboCount = 0;
+        p.comboMultiplier = 1;
+        p.comboTimer = 0;
+      }
+    }
 
     if (p.dashFrames > 0 && p.dashFrames % 3 === 0) {
       spawnParticle(p.x + p.width/2, p.y + p.height/2, '#5de2ef', 'smoke', 1);
@@ -485,7 +500,20 @@ const App: React.FC = () => {
               playSound('explosion');
               spawnParticle(e.x + e.width/2, e.y + e.height/2, e.isBoss ? '#fbbf24' : '#f43f5e', 'smoke', e.isBoss ? 20 : 8);
               enemies.splice(j, 1);
-              setScore(s => s + (e.isBoss ? 5000 : (e.type === 'heavy' ? 500 : 100)));
+              
+              // --- COMBO UPDATE ---
+              p.comboCount++;
+              p.comboTimer = COMBO_TIME_LIMIT;
+              const prevMulti = p.comboMultiplier;
+              p.comboMultiplier = Math.min(8, 1 + Math.floor(p.comboCount / 5));
+              
+              if (p.comboMultiplier > prevMulti) {
+                 playSound('combo'); // Sound for multiplier increase
+              }
+
+              const baseScore = (e.isBoss ? 5000 : (e.type === 'heavy' ? 500 : 100));
+              setScore(s => s + (baseScore * p.comboMultiplier));
+              
               spawnPowerUp(e.x + e.width/2, e.y + e.height/2);
               shake.current = e.isBoss ? 20 : 5;
               
@@ -509,6 +537,11 @@ const App: React.FC = () => {
             p.lives--; // Update reference for logic
             setLives(p.lives); // Sync state for UI
             
+            // --- RESET COMBO ON HIT ---
+            p.comboCount = 0;
+            p.comboTimer = 0;
+            p.comboMultiplier = 1;
+
             p.invincibilityFrames = 90;
             playSound('explosion');
             shake.current = 15;
@@ -669,6 +702,43 @@ const App: React.FC = () => {
       }
     });
     ctx.globalAlpha = 1.0;
+
+    // --- HUD: COMBO SYSTEM ---
+    if (p.comboMultiplier > 1 && gameState === 'PLAYING') {
+      ctx.save();
+      ctx.resetTransform(); // Draw in screen coordinates
+      const rightX = dims.w - 20;
+      const topY = 120;
+      
+      ctx.textAlign = 'right';
+      
+      // Multiplier Text
+      const pulse = Math.sin(Date.now() / 100) * 0.1 + 1; // Pulse effect
+      ctx.translate(rightX, topY);
+      ctx.scale(pulse, pulse);
+      ctx.font = 'italic 900 48px sans-serif';
+      ctx.fillStyle = '#facc15'; // Yellow
+      ctx.shadowColor = 'rgba(250, 204, 21, 0.5)';
+      ctx.shadowBlur = 10;
+      ctx.fillText(`${p.comboMultiplier}x`, 0, 0);
+      
+      // Label
+      ctx.font = '700 12px sans-serif';
+      ctx.fillStyle = 'rgba(255,255,255,0.6)';
+      ctx.shadowBlur = 0;
+      ctx.fillText('COMBO', 0, 15);
+      
+      // Bar Background
+      ctx.fillStyle = 'rgba(255,255,255,0.2)';
+      ctx.fillRect(-100, 25, 100, 6);
+      
+      // Bar Progress
+      ctx.fillStyle = '#facc15';
+      const width = (p.comboTimer / COMBO_TIME_LIMIT) * 100;
+      ctx.fillRect(-width, 25, width, 6);
+
+      ctx.restore();
+    }
   };
 
   const checkRectCollide = (r1: {x: number, y: number, width: number, height: number}, r2: {x: number, y: number, width: number, height: number}) => {
@@ -730,7 +800,10 @@ const App: React.FC = () => {
       shieldFrames: 0, 
       powerLevel: 1, 
       abilityCharge: 0,
-      lives: 3
+      lives: 3,
+      comboCount: 0,
+      comboTimer: 0,
+      comboMultiplier: 1
     };
     
     levelData.current = { enemies: [], powerUps: [], projectiles: [], particles: [] };

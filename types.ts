@@ -1,7 +1,7 @@
 
 export type GameMode = 'MENU' | 'PLATFORMER' | 'SHOOTER';
 export type GameState = 'INTRO' | 'START' | 'PLAYING' | 'PAUSED' | 'GAME_OVER' | 'WIN' | 'DEATH_ANIM' | 'CREDITS' | 'HIGHSCORES';
-export type MenuSection = 'MAIN' | 'PLAY' | 'SETTINGS' | 'CONTROLS';
+export type MenuSection = 'MAIN' | 'PLAY' | 'SETTINGS' | 'CONTROLS' | 'CREDITS' | 'HIGHSCORES';
 export type GraphicsQuality = 'LOW' | 'MEDIUM' | 'HIGH';
 export type SpecialAbility = 'OVERDRIVE' | 'EMP_STORM' | 'CHRONO_SPHERE';
 export type ShooterSkin = 'CORE' | 'PHANTOM' | 'STRIKER';
@@ -58,6 +58,10 @@ export interface Player extends GameObject {
   abilityCharge: number;
   scrapCount: number;
   powerLevel: number;
+  // Combo System
+  comboCount: number;      // Total enemies killed in current chain
+  comboTimer: number;      // Frames remaining to keep combo alive
+  comboMultiplier: number; // Current score multiplier (e.g. 1x, 2x, 4x)
 }
 
 // 9 Power-up types
