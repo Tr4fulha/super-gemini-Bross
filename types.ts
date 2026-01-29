@@ -1,7 +1,7 @@
 
 export type GameMode = 'MENU' | 'PLATFORMER' | 'SHOOTER';
-export type GameState = 'INTRO' | 'START' | 'PLAYING' | 'PAUSED' | 'GAME_OVER' | 'WIN' | 'DEATH_ANIM' | 'CREDITS' | 'HIGHSCORES';
-export type MenuSection = 'MAIN' | 'PLAY' | 'SETTINGS' | 'CONTROLS' | 'CREDITS' | 'HIGHSCORES';
+export type GameState = 'INTRO' | 'START' | 'PLAYING' | 'PAUSED' | 'GAME_OVER' | 'WIN' | 'DEATH_ANIM' | 'CREDITS' | 'HIGHSCORES' | 'SHOP';
+export type MenuSection = 'MAIN' | 'PLAY' | 'SETTINGS' | 'CONTROLS' | 'CREDITS' | 'HIGHSCORES' | 'SHOP';
 export type GraphicsQuality = 'LOW' | 'MEDIUM' | 'HIGH';
 export type SpecialAbility = 'OVERDRIVE' | 'EMP_STORM' | 'CHRONO_SPHERE';
 export type ShooterSkin = 'CORE' | 'PHANTOM' | 'STRIKER';
@@ -112,6 +112,10 @@ export interface Star {
   speed: number;
   opacity: number;
   layer: number; // Parallax
+  type: 'STAR' | 'NEBULA' | 'ASTEROID';
+  angle: number;
+  rotationSpeed: number;
+  color: string;
 }
 
 export interface Particle {
@@ -127,9 +131,42 @@ export interface Particle {
   type?: 'spark' | 'smoke' | 'ring';
 }
 
+export interface FloatingText {
+  x: number;
+  y: number;
+  text: string;
+  color: string;
+  size: number;
+  life: number;
+  velocityY: number;
+}
+
+export interface Mine extends GameObject {
+  velocityY: number;
+  rotation: number;
+  active: boolean;
+}
+
+export interface Scrap extends GameObject {
+  velocityY: number;
+  velocityX: number;
+  value: number;
+  rotation: number;
+}
+
+export type UpgradeType = 'START_LIVES' | 'START_POWER' | 'MAGNET_RANGE' | 'DASH_COOLDOWN' | 'SCORE_MULT';
+
+export interface SaveData {
+  totalScrap: number;
+  upgrades: Record<UpgradeType, number>;
+}
+
 export interface LevelData {
   enemies: Enemy[];
   powerUps: PowerUp[];
-  particles: Particle[]; // Moved to level data for better management
+  particles: Particle[];
   projectiles: Projectile[];
+  floatingTexts: FloatingText[];
+  mines: Mine[];
+  scraps: Scrap[];
 }
