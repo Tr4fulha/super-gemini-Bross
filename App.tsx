@@ -1,784 +1,894 @@
 
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { GameMode, GameState, LevelInfo, LevelData, Player, Platform, Enemy, Coin, Goal, GameObject, PowerUp, Projectile, Star, Particle, MenuSection, GraphicsQuality, GameSettings } from './types';
-import { WALK_SPEED, JUMP_POWER, GRAVITY, FALL_GRAVITY_MULT, FRICTION, PREDEFINED_LEVELS } from './constants';
+import { GameState, Player, Enemy, Star, Particle, Projectile, LevelData, KeyBinds, GameSettings, SpecialAbility, MenuSection, ShooterSkin, PowerUp, PowerUpType, HighScoreEntry } from './types';
 import MobileControls from './components/MobileControls';
 
-type ShooterSkin = 'CORE' | 'PHANTOM' | 'STRIKER';
+// --- CONSTANTS ---
+const DEFAULT_BINDS: KeyBinds = { up: 'ArrowUp', down: 'ArrowDown', left: 'ArrowLeft', right: 'ArrowRight', fire: ' ', dash: 'Shift', pause: 'Escape' };
+const FRICTION = 0.92;
+const ACCELERATION = 0.8;
+const DASH_POWER = 2.5;
+const MAX_PARTICLES = 100; // Performance limit
 
 const TRANSLATIONS = {
   PT: {
-    PLAY: "JOGAR",
-    TUTORIAL: "TUTORIAL",
-    OPTIONS: "OPÇÕES",
-    STORE: "LOJA",
-    QUIT: "SAIR",
-    SETTINGS_TITLE: "PAINEL DE CONTROLE",
-    AUDIO: "ÁUDIO",
-    GRAPHICS: "QUALIDADE GRÁFICA",
-    LANGUAGE: "IDIOMA",
-    KEYBOARD: "TECLADO",
-    MOBILE: "MOBILE",
-    CREDITS: "CRÉDITOS",
-    CHANGELOG: "LOG DE MUDANÇAS",
-    VOLUME: "MASTER",
-    SFX: "EFEITOS",
-    MUSIC: "MÚSICA",
-    BACK: "VOLTAR",
-    LAUNCH: "LANÇAR NAVE",
-    SCORE: "PONTOS",
-    WAVE: "ONDA",
-    MISSION_COMPLETE: "VITÓRIA TÁTICA",
-    VESSEL_DOWN: "CONTATO PERDIDO",
-    FINAL_SCORE: "RESULTADO FINAL",
-    RESTART: "REINICIAR",
-    PAUSE: "PAUSAR",
-    RESUME: "CONTINUAR",
-    QUALITY_LOW: "8-BIT (BAIXA)",
-    QUALITY_MEDIUM: "16-BIT (MÉDIA)",
-    QUALITY_HIGH: "ULTRA (ALTA)",
-    IN_DEV: "JOGO EM DESENVOLVIMENTO",
-    CREATED_BY: "CRIADO POR TR4FULHA TEAM",
-    START: "TOQUE PARA INICIAR",
-    V_LOG: "V2.1 - Invasão Estelar",
-    LOG_1: "- 4 naves: Scout, Interceptor, Bomber e Heavy (Mísseis).",
-    LOG_2: "- 9 Power-ups: Slow-mo, EMP, Ghost, Triple Shot e mais.",
-    LOG_3: "- Sistema de explosões, partículas e feedback de dano.",
-    LOG_4: "- Física de voo recalibrada e novos comportamentos inimigos.",
-    LOG_5: "- Designs de naves pixelados e balanceamento de dano.",
-    DEV: "Engenharia: Gemini Core",
-    ART: "Art: Pixel Syndicate",
-    SOUND: "Frequência: Synth-8",
-    SELECT_SHIP: "SELECIONE SUA NAVE"
+    PLAY: "INICIAR MISSÃO", OPTIONS: "OPÇÕES", CREDITS: "CRÉDITOS", QUIT: "SAIR",
+    BACK: "VOLTAR", LAUNCH: "LANÇAR NAVE", SCORE: "PONTOS", WAVE: "ONDA",
+    GAME_OVER: "FALHA NA MISSÃO", RESTART: "TENTAR NOVAMENTE", PAUSE: "SISTEMA PAUSADO",
+    RESUME: "RETOMAR", START: "CLIQUE PARA INICIAR", SELECT_SHIP: "ESCOLHA SUA NAVE",
+    HIGHSCORES: "HALL DA FAMA", CONTROLS: "CONTROLES",
+    TXT_BOSS: "ALERTA: NAVE MÃE DETECTADA", TXT_WAVE_CLR: "ONDA COMPLETADA"
   },
   EN: {
-    PLAY: "PLAY",
-    TUTORIAL: "TUTORIAL",
-    OPTIONS: "OPTIONS",
-    STORE: "STORE",
-    QUIT: "QUIT",
-    SETTINGS_TITLE: "CONTROL PANEL",
-    AUDIO: "AUDIO",
-    GRAPHICS: "GRAPHICS QUALITY",
-    LANGUAGE: "LANGUAGE",
-    KEYBOARD: "KEYBOARD",
-    MOBILE: "MOBILE",
-    CREDITS: "CREDITS",
-    CHANGELOG: "CHANGELOG",
-    VOLUME: "MASTER",
-    SFX: "SFX",
-    MUSIC: "MUSIC",
-    BACK: "BACK",
-    LAUNCH: "LAUNCH SHIP",
-    SCORE: "SCORE",
-    WAVE: "WAVE",
-    MISSION_COMPLETE: "TACTICAL WIN",
-    VESSEL_DOWN: "SIGNAL LOST",
-    FINAL_SCORE: "FINAL RESULT",
-    RESTART: "RESTART",
-    PAUSE: "PAUSE",
-    RESUME: "RESUME",
-    QUALITY_LOW: "8-BIT (LOW)",
-    QUALITY_MEDIUM: "16-BIT (MED)",
-    QUALITY_HIGH: "ULTRA (HIGH)",
-    IN_DEV: "GAME IN DEVELOPMENT",
-    CREATED_BY: "CREATED BY TR4FULHA TEAM",
-    START: "TOUCH TO START",
-    V_LOG: "V2.1 - Stellar Invasion",
-    LOG_1: "- 4 ships: Scout, Interceptor, Bomber, and Heavy (Missiles).",
-    LOG_2: "- 9 Power-ups: Slow-mo, EMP, Ghost, Triple Shot, and more.",
-    LOG_3: "- Explosion system, particles, and damage feedback.",
-    LOG_4: "- Calibrated flight physics and new enemy AI patterns.",
-    LOG_5: "- Pixel-art ship designs and damage balancing.",
-    DEV: "Engineering: Gemini Core",
-    ART: "Art: Pixel Syndicate",
-    SOUND: "Frequency: Synth-8",
-    SELECT_SHIP: "SELECT YOUR SHIP"
+    PLAY: "START MISSION", OPTIONS: "OPTIONS", CREDITS: "CREDITS", QUIT: "QUIT",
+    BACK: "BACK", LAUNCH: "LAUNCH SHIP", SCORE: "SCORE", WAVE: "WAVE",
+    GAME_OVER: "MISSION FAILED", RESTART: "RETRY", PAUSE: "SYSTEM PAUSED",
+    RESUME: "RESUME", START: "CLICK TO START", SELECT_SHIP: "SELECT SHIP",
+    HIGHSCORES: "HALL OF FAME", CONTROLS: "CONTROLS",
+    TXT_BOSS: "WARNING: MOTHERSHIP DETECTED", TXT_WAVE_CLR: "WAVE CLEARED"
   }
 };
 
-const PixelButton: React.FC<{
-  label: string;
-  onClick: () => void;
-  width?: string;
-  className?: string;
-}> = ({ label, onClick, width = 'w-64 md:w-80', className = '' }) => (
-  <button
-    onClick={onClick}
-    className={`relative ${width} h-10 md:h-12 bg-[#1a2e35] border-y-2 border-[#5de2ef] group active:scale-95 transition-all mb-1 ${className}`}
-    style={{ imageRendering: 'pixelated' }}
-  >
-    <div className="absolute inset-0 opacity-20 pointer-events-none bg-[repeating-linear-gradient(0deg,transparent,transparent_2px,#000_2px,#000_4px)]"></div>
-    <div className="absolute inset-y-0 left-0 w-[2px] bg-[#5de2ef]"></div>
-    <div className="absolute inset-y-0 right-0 w-[2px] bg-[#5de2ef]"></div>
-    <div className="absolute -top-[2px] -left-[2px] w-3 h-3 border-t-4 border-l-4 border-[#5de2ef]"></div>
-    <div className="absolute -bottom-[2px] -right-[2px] w-3 h-3 border-b-4 border-r-4 border-[#5de2ef]"></div>
-    <span className="relative z-10 text-[#5de2ef] font-bold uppercase tracking-widest text-xs md:text-sm">
-      {label}
-    </span>
-  </button>
-);
-
-const PixelIconButton: React.FC<{
-  icon: string | React.ReactNode;
-  onClick: () => void;
-  size?: string;
-  className?: string;
-}> = ({ icon, onClick, size = 'w-10 h-10 md:w-12 md:h-12', className = '' }) => (
-  <button
-    onClick={onClick}
-    className={`relative ${size} bg-[#1a2e35] border-2 border-[#5de2ef] flex items-center justify-center active:scale-90 transition-all shadow-md group ${className}`}
-  >
-    <span className="text-[#5de2ef] text-lg font-bold drop-shadow-md">{icon}</span>
-  </button>
-);
-
 const App: React.FC = () => {
-  const [gameMode, setGameMode] = useState<GameMode>('MENU');
+  // --- STATE ---
   const [gameState, setGameState] = useState<GameState>('INTRO');
   const [menuSection, setMenuSection] = useState<MenuSection>('MAIN');
-  
   const [settings, setSettings] = useState<GameSettings>(() => {
-    const saved = localStorage.getItem('gemini_settings');
-    return saved ? JSON.parse(saved) : {
-      masterVolume: 0.8, sfxVolume: 0.6, musicVolume: 0.4,
-      quality: 'HIGH', language: 'PT'
-    };
+    try {
+      const saved = localStorage.getItem('sg_settings');
+      return saved ? JSON.parse(saved) : { masterVolume: 0.8, sfxVolume: 0.6, musicVolume: 0.4, quality: 'HIGH', language: 'PT', keyBinds: DEFAULT_BINDS };
+    } catch {
+      return { masterVolume: 0.8, sfxVolume: 0.6, musicVolume: 0.4, quality: 'HIGH', language: 'PT', keyBinds: DEFAULT_BINDS };
+    }
   });
-
-  const t = TRANSLATIONS[settings.language];
-  const [selectedSkin, setSelectedSkin] = useState<ShooterSkin>(() => (localStorage.getItem('gemini_selected_skin') as ShooterSkin) || 'CORE');
-  const [isSelectingSkin, setIsSelectingSkin] = useState(false);
+  
+  const [highScores, setHighScores] = useState<HighScoreEntry[]>(() => {
+    try {
+      const saved = localStorage.getItem('sg_highscores');
+      return saved ? JSON.parse(saved) : [];
+    } catch {
+      return [];
+    }
+  });
+  
+  const [selectedSkin, setSelectedSkin] = useState<ShooterSkin>('CORE');
+  const [selectedAbility, setSelectedAbility] = useState<SpecialAbility>('OVERDRIVE');
   const [score, setScore] = useState(0);
   const [lives, setLives] = useState(3);
-  const [shooterWave, setShooterWave] = useState(1);
+  const [wave, setWave] = useState(1);
   const [dims, setDims] = useState({ w: window.innerWidth, h: window.innerHeight });
+  const [message, setMessage] = useState<string | null>(null);
 
+  // --- REFS (Mutable Game State) ---
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const requestRef = useRef<number | null>(null);
-  const keysPressed = useRef<{ [key: string]: boolean }>({});
+  const keys = useRef<Record<string, boolean>>({});
   const audioCtx = useRef<AudioContext | null>(null);
-  const musicInterval = useRef<any>(null);
+  const shake = useRef(0);
+  const difficultyMult = useRef(1.0);
+  const lastTime = useRef(0);
 
+  // Entities
   const player = useRef<Player>({
-    x: dims.w / 2 - 15, y: dims.h - 100, width: 30, height: 30, velocityX: 0, velocityY: 0, isJumping: false, score: 0, lives: 3,
-    direction: 'right', isLarge: false, invincibilityFrames: 0, powerLevel: 1, shieldFrames: 0, maxShieldFrames: 720,
-    hasDrone: false, droneFrames: 0, maxDroneFrames: 0, tripleShotFrames: 0, maxTripleShotFrames: 1080, tilt: 0,
-    energy: 0, maxEnergy: 100, dashCooldown: 0, dashFrames: 0, scrapCount: 0,
-    damageBoostFrames: 0, slowMoFrames: 0, rapidFireFrames: 0, ghostFrames: 0, empCooldown: 0
+    x: 0, y: 0, width: 32, height: 32, velocityX: 0, velocityY: 0, score: 0, lives: 3,
+    invincibilityFrames: 0, shieldFrames: 0, maxShieldFrames: 600, tilt: 0,
+    dashCooldown: 0, dashFrames: 0, slowMoFrames: 0, rapidFireFrames: 0,
+    damageBoostFrames: 0, speedBoostFrames: 0, magnetFrames: 0, deathTimer: 0,
+    abilityCharge: 0, scrapCount: 0, powerLevel: 1
   });
   
-  const levelData = useRef<LevelData>({ platforms: [], enemies: [], coins: [], powerUps: [], goal: { x: 0, y: 0, width: 40, height: 100 }, playerStart: { x: 50, y: 300 } });
-  const projectiles = useRef<Projectile[]>([]);
+  const levelData = useRef<LevelData>({ enemies: [], powerUps: [], projectiles: [], particles: [] });
   const stars = useRef<Star[]>([]);
-  const particles = useRef<Particle[]>([]);
-  const lastShotTime = useRef<number>(0);
 
+  const t = TRANSLATIONS[settings.language];
+
+  // --- AUDIO ENGINE ---
+  const playSound = (type: string) => {
+    if (!audioCtx.current) return;
+    try {
+      const ctx = audioCtx.current;
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      const vol = settings.sfxVolume * settings.masterVolume;
+      osc.connect(gain); gain.connect(ctx.destination);
+
+      const now = ctx.currentTime;
+      if (type === 'shoot') {
+        osc.type = 'square'; osc.frequency.setValueAtTime(400, now); osc.frequency.exponentialRampToValueAtTime(100, now + 0.1);
+        gain.gain.setValueAtTime(0.1 * vol, now); osc.stop(now + 0.1);
+      } else if (type === 'explosion') {
+        osc.type = 'sawtooth'; osc.frequency.setValueAtTime(100, now); osc.frequency.linearRampToValueAtTime(10, now + 0.3);
+        gain.gain.setValueAtTime(0.2 * vol, now); gain.gain.exponentialRampToValueAtTime(0.01, now + 0.3); osc.stop(now + 0.3);
+      } else if (type === 'powerup') {
+        osc.type = 'sine'; osc.frequency.setValueAtTime(600, now); osc.frequency.linearRampToValueAtTime(1200, now + 0.2);
+        gain.gain.setValueAtTime(0.1 * vol, now); osc.stop(now + 0.2);
+      } else if (type === 'dash') {
+        osc.type = 'triangle'; osc.frequency.setValueAtTime(200, now); osc.frequency.linearRampToValueAtTime(50, now + 0.2);
+        gain.gain.setValueAtTime(0.1 * vol, now); osc.stop(now + 0.2);
+      }
+      osc.start();
+    } catch (e) {
+      // Ignore audio errors to prevent crash
+    }
+  };
+
+  // --- PERSISTENCE ---
+  // Save settings whenever they change
   useEffect(() => {
-    localStorage.setItem('gemini_settings', JSON.stringify(settings));
+    try {
+      localStorage.setItem('sg_settings', JSON.stringify(settings));
+    } catch (e) {
+      console.error("Error saving settings:", e);
+    }
   }, [settings]);
 
+  // --- RESIZE HANDLER ---
   useEffect(() => {
     const handleResize = () => setDims({ w: window.innerWidth, h: window.innerHeight });
     window.addEventListener('resize', handleResize);
     return () => window.removeEventListener('resize', handleResize);
   }, []);
 
-  const initAudio = () => {
-    if (!audioCtx.current) {
-      audioCtx.current = new (window.AudioContext || (window as any).webkitAudioContext)();
+  // --- KEYBOARD LISTENERS ---
+  useEffect(() => {
+    const handleDown = (e: KeyboardEvent) => {
+      keys.current[e.key] = true;
+      if(['ArrowUp','ArrowDown','ArrowLeft','ArrowRight', ' '].includes(e.key)) e.preventDefault();
+      
+      if (e.key === settings.keyBinds.pause) {
+        setGameState(prev => {
+          if (prev === 'PLAYING') return 'PAUSED';
+          if (prev === 'PAUSED') return 'PLAYING';
+          return prev;
+        });
+      }
+      if ((e.key === 'x' || e.key === 'X') && gameState === 'PLAYING') useSpecial();
+    };
+    
+    const handleUp = (e: KeyboardEvent) => keys.current[e.key] = false;
+    
+    window.addEventListener('keydown', handleDown);
+    window.addEventListener('keyup', handleUp);
+    return () => {
+      window.removeEventListener('keydown', handleDown);
+      window.removeEventListener('keyup', handleUp);
+    };
+  }, [settings.keyBinds, gameState]);
+
+  // --- GAME LOGIC ---
+  const spawnParticle = (x: number, y: number, color: string, type: Particle['type'] = 'spark', count = 1) => {
+    // Limit particles to prevent lag
+    if (levelData.current.particles.length > MAX_PARTICLES) return;
+
+    for(let i=0; i<count; i++) {
+      levelData.current.particles.push({
+        x, y, 
+        vx: (Math.random() - 0.5) * (type === 'spark' ? 10 : 4), 
+        vy: (Math.random() - 0.5) * (type === 'spark' ? 10 : 4),
+        life: 1.0, color, size: Math.random() * 3 + 1, decay: Math.random() * 0.03 + 0.02, 
+        glow: settings.quality === 'HIGH', type
+      });
     }
-    if (audioCtx.current.state === 'suspended') audioCtx.current.resume();
   };
 
-  const startMusic = () => {
-    if (musicInterval.current) clearInterval(musicInterval.current);
-    if (!audioCtx.current) return;
-    const ctx = audioCtx.current;
-    musicInterval.current = setInterval(() => {
-      if (gameState !== 'PLAYING') return;
-      const osc = ctx.createOscillator();
-      const gain = ctx.createGain();
-      const notes = [261.63, 311.13, 349.23, 392.00];
-      osc.type = 'triangle';
-      osc.frequency.setValueAtTime(notes[Math.floor(Math.random() * notes.length)], ctx.currentTime);
-      gain.gain.setValueAtTime(settings.masterVolume * settings.musicVolume * 0.1, ctx.currentTime);
-      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.4);
-      osc.connect(gain); gain.connect(ctx.destination);
-      osc.start(); osc.stop(ctx.currentTime + 0.4);
-    }, 450);
-  };
-
-  const playSound = (type: string) => {
-    if (!audioCtx.current) return;
-    const ctx = audioCtx.current;
-    const osc = ctx.createOscillator();
-    const gain = ctx.createGain();
-    const vol = settings.sfxVolume * settings.masterVolume;
-    osc.connect(gain); gain.connect(ctx.destination);
-    if (type === 'shoot') {
-      osc.type = 'square'; osc.frequency.setValueAtTime(500, ctx.currentTime);
-      osc.frequency.exponentialRampToValueAtTime(50, ctx.currentTime + 0.1);
-      gain.gain.setValueAtTime(0.06 * vol, ctx.currentTime);
-    } else if (type === 'explosion') {
-      osc.type = 'sawtooth'; osc.frequency.setValueAtTime(100, ctx.currentTime);
-      osc.frequency.linearRampToValueAtTime(10, ctx.currentTime + 0.2);
-      gain.gain.setValueAtTime(0.12 * vol, ctx.currentTime);
-    } else if (type === 'powerup') {
-      osc.type = 'sine'; osc.frequency.setValueAtTime(400, ctx.currentTime);
-      osc.frequency.exponentialRampToValueAtTime(800, ctx.currentTime + 0.1);
-      gain.gain.setValueAtTime(0.15 * vol, ctx.currentTime);
+  const useSpecial = () => {
+    const p = player.current;
+    if (p.abilityCharge < 100) return;
+    p.abilityCharge = 0;
+    playSound('powerup');
+    
+    if (selectedAbility === 'OVERDRIVE') {
+      p.rapidFireFrames = 300; p.shieldFrames = 300;
+      spawnParticle(p.x, p.y, '#f59e0b', 'ring', 20);
+    } else if (selectedAbility === 'EMP_STORM') {
+      levelData.current.projectiles = levelData.current.projectiles.filter(pr => pr.owner === 'player');
+      levelData.current.enemies.forEach(e => { e.health -= 20; e.hitFlash = 10; });
+      shake.current = 20;
+      spawnParticle(dims.w/2, dims.h/2, '#0ea5e9', 'ring', 50);
+    } else if (selectedAbility === 'CHRONO_SPHERE') {
+      p.slowMoFrames = 400;
     }
-    osc.start(); osc.stop(ctx.currentTime + 0.2);
   };
 
-  const spawnWave = useCallback((wave: number) => {
-    const enemies: Enemy[] = [];
-    setShooterWave(wave);
-    const cols = Math.min(6, 4 + Math.floor(wave / 2));
-    const px = 100;
-    const py = 70;
-    const sx = (dims.w - (cols * px)) / 2;
+  const spawnPowerUp = (x: number, y: number) => {
+    const rand = Math.random();
+    let type: PowerUpType | null = null;
+    
+    if (rand < 0.05) type = 'LIFE';
+    else if (rand < 0.15) type = 'SHIELD';
+    else if (rand < 0.25) type = 'TRIPLE';
+    else if (rand < 0.35) type = 'DAMAGE';
+    else if (rand < 0.50) type = 'RAPID';
+    else if (rand < 0.60) type = 'SPEED';
+    else if (rand < 0.70) type = 'MAGNET';
+    else if (rand < 0.75) type = 'TIME';
+    else if (rand < 0.77) type = 'NUKE';
 
-    for (let r = 0; r < 3; r++) {
-      for (let c = 0; c < cols; c++) {
-        let type: Enemy['type'] = 'interceptor';
-        let health = 2 + Math.floor(wave / 2);
-        let vx = 1.0 + (wave * 0.1);
-        let w = 34, h = 26;
+    if (type) {
+      levelData.current.powerUps.push({
+        x, y, width: 20, height: 20, type, velocityY: 1, pulseOffset: Math.random() * 10
+      });
+    }
+  };
 
+  const spawnWave = useCallback((w: number) => {
+    setWave(w);
+    const isBoss = w % 5 === 0;
+    const diff = difficultyMult.current;
+    
+    if (isBoss) {
+      setMessage(t.TXT_BOSS);
+      setTimeout(() => setMessage(null), 3000);
+      const hp = 300 * diff * (w / 5);
+      levelData.current.enemies.push({
+        x: dims.w / 2 - 60, y: -100, width: 120, height: 100, velocityX: 2, velocityY: 1,
+        type: 'boss', health: hp, maxHealth: hp, hitFlash: 0, lastShotTime: 0, 
+        behaviorTimer: 0, angle: 0, isBoss: true
+      });
+    } else {
+      const count = Math.min(20, 5 + Math.floor(w * 1.5));
+      for (let i = 0; i < count; i++) {
         const rand = Math.random();
-        if (rand < 0.25) {
-          type = 'scout';
-          health = 1;
-          vx *= 1.8;
-          w = 24; h = 20;
-        } else if (rand < 0.5) {
-          type = 'heavy';
-          health *= 3;
-          vx *= 0.6;
-          w = 50; h = 40;
-        } else if (rand < 0.7) {
-          type = 'bomber';
-          health *= 2;
-          vx *= 0.8;
-          w = 44; h = 34;
-        }
+        let type: Enemy['type'] = 'scout';
+        let hp = 2 * diff;
+        let w = 30, h = 30;
+        
+        if (rand < 0.5) { type = 'scout'; hp = 1 * diff; w=25; h=25; } 
+        else if (rand < 0.8) { type = 'fighter'; hp = 3 * diff; w=35; h=35; } 
+        else if (rand < 0.95) { type = 'heavy'; hp = 8 * diff; w=50; h=50; } 
+        else { type = 'sniper'; hp = 2 * diff; w=30; h=40; } 
 
-        enemies.push({
-          x: sx + c * px, y: -150 - (r * 100), width: w, height: h, velocityX: vx, velocityY: 0.4,
-          type: type, range: 0, startX: 0, startY: 0, health: health,
-          targetX: sx + c * px, targetY: 60 + r * py, phase: 'entry', sineOffset: Math.random() * 6,
-          lastShotTime: Date.now()
+        levelData.current.enemies.push({
+          x: Math.random() * (dims.w - 100) + 50,
+          y: -50 - (i * 80), // Spawn above screen
+          width: w, height: h, velocityX: 0, velocityY: 2,
+          type, health: hp, maxHealth: hp, hitFlash: 0, lastShotTime: 0,
+          behaviorTimer: Math.random() * 100, angle: Math.PI / 2
         });
       }
     }
-    levelData.current.enemies = enemies;
-  }, [dims.w]);
+  }, [dims.w, t.TXT_BOSS]);
 
-  const drawShip = (ctx: CanvasRenderingContext2D, p: Player, quality: GraphicsQuality, skin: ShooterSkin) => {
-    ctx.save();
-    ctx.translate(p.x + p.width / 2, p.y + p.height / 2);
-    ctx.rotate(p.tilt);
-    ctx.translate(-(p.x + p.width / 2), -(p.y + p.height / 2));
-    
-    // Status effects visuals
-    if (p.ghostFrames > 0) ctx.globalAlpha = 0.4 + Math.sin(Date.now() / 100) * 0.2;
-    
-    const color = { CORE: '#22d3ee', PHANTOM: '#d946ef', STRIKER: '#ef4444' }[skin];
-    const mainColor = p.damageBoostFrames > 0 ? '#fbbf24' : color;
-
-    if (quality === 'LOW') {
-      ctx.fillStyle = mainColor;
-      ctx.fillRect(p.x + 5, p.y + 5, 20, 25);
-      ctx.fillRect(p.x, p.y + 15, 30, 10);
-    } else {
-      ctx.fillStyle = mainColor;
-      ctx.beginPath();
-      ctx.moveTo(p.x + 15, p.y);
-      ctx.lineTo(p.x + 30, p.y + 30);
-      ctx.lineTo(p.x + 15, p.y + 20);
-      ctx.lineTo(p.x, p.y + 30);
-      ctx.closePath(); ctx.fill();
-
-      if (quality === 'HIGH') {
-        ctx.shadowBlur = 12; ctx.shadowColor = mainColor;
-        ctx.fillStyle = 'rgba(255,255,255,0.6)'; ctx.fillRect(p.x + 12, p.y + 8, 6, 6);
-      }
+  const update = useCallback((time: number) => {
+    if (gameState !== 'PLAYING' && gameState !== 'DEATH_ANIM') {
+      lastTime.current = time;
+      requestRef.current = requestAnimationFrame(update);
+      return;
     }
-
-    if (p.shieldFrames > 0) {
-      ctx.strokeStyle = '#5de2ef';
-      ctx.lineWidth = 2;
-      ctx.beginPath();
-      ctx.arc(p.x + p.width / 2, p.y + p.height / 2, p.width * 0.8, 0, Math.PI * 2);
-      ctx.stroke();
-    }
-
-    ctx.restore();
-  };
-
-  const drawEnemyShip = (ctx: CanvasRenderingContext2D, e: Enemy, quality: GraphicsQuality) => {
-    ctx.save();
-    const cx = e.x + e.width / 2;
-    const cy = e.y + e.height / 2;
-    ctx.translate(cx, cy);
-
-    ctx.fillStyle = e.hitFlash ? '#fff' : '#f43f5e';
-    if (e.type === 'scout') {
-      ctx.fillStyle = e.hitFlash ? '#fff' : '#10b981';
-      ctx.beginPath();
-      ctx.moveTo(0, 10); ctx.lineTo(10, -10); ctx.lineTo(0, -5); ctx.lineTo(-10, -10);
-      ctx.closePath(); ctx.fill();
-    } else if (e.type === 'interceptor') {
-      ctx.fillStyle = e.hitFlash ? '#fff' : '#f43f5e';
-      ctx.fillRect(-15, -12, 5, 24);
-      ctx.fillRect(10, -12, 5, 24);
-      ctx.fillRect(-10, -2, 20, 4);
-      ctx.beginPath(); ctx.arc(0, 0, 6, 0, Math.PI * 2); ctx.fill();
-    } else if (e.type === 'heavy') {
-      ctx.fillStyle = e.hitFlash ? '#fff' : '#ea580c';
-      ctx.fillRect(-25, -20, 50, 30);
-      ctx.fillStyle = '#451a03';
-      ctx.fillRect(-10, 5, 5, 10);
-      ctx.fillRect(5, 5, 5, 10);
-      ctx.fillStyle = e.hitFlash ? '#fff' : '#78350f';
-      ctx.fillRect(-20, -15, 40, 5);
-    } else if (e.type === 'bomber') {
-      ctx.fillStyle = e.hitFlash ? '#fff' : '#8b5cf6';
-      ctx.beginPath();
-      ctx.moveTo(0, 15); ctx.lineTo(22, -10); ctx.lineTo(10, -5); ctx.lineTo(-10, -5); ctx.lineTo(-22, -10);
-      ctx.closePath(); ctx.fill();
-      ctx.fillStyle = '#1e1b4b';
-      ctx.beginPath(); ctx.arc(0, -2, 8, 0, Math.PI * 2); ctx.fill();
-    }
-    
-    if (quality === 'HIGH') {
-      ctx.shadowBlur = 8; ctx.shadowColor = ctx.fillStyle as string;
-    }
-    ctx.restore();
-  };
-
-  const renderShooter = () => {
-    const ctx = canvasRef.current?.getContext('2d'); if (!ctx) return;
-    ctx.fillStyle = '#020617'; ctx.fillRect(0, 0, dims.w, dims.h);
-    stars.current.forEach(s => { ctx.fillStyle = `rgba(255,255,255,${s.opacity})`; ctx.fillRect(s.x, s.y, s.size, s.size); });
     
     const p = player.current;
-    if (p.invincibilityFrames % 10 < 5) drawShip(ctx, p, settings.quality, selectedSkin);
+    const timeScale = p.slowMoFrames > 0 ? 0.3 : 1.0;
     
-    levelData.current.enemies.forEach(e => {
-      drawEnemyShip(ctx, e, settings.quality);
-    });
-    
-    levelData.current.powerUps.forEach(pu => {
-      ctx.save();
-      const colors: Record<string, string> = {
-        life: '#f43f5e', shield: '#0ea5e9', triple_shot: '#fbbf24',
-        power_boost: '#f97316', slow_mo: '#8b5cf6', rapid_fire: '#d946ef',
-        emp: '#ffffff', ghost: '#94a3b8', scrap: '#10b981'
-      };
-      ctx.fillStyle = colors[pu.type] || '#fff';
-      ctx.beginPath();
-      ctx.arc(pu.x + pu.width/2, pu.y + pu.height/2, pu.width/2, 0, Math.PI*2);
-      ctx.fill();
-      ctx.strokeStyle = '#fff'; ctx.lineWidth = 1; ctx.stroke();
-      ctx.restore();
-    });
-
-    projectiles.current.forEach(pr => {
-      ctx.fillStyle = pr.color;
-      if (pr.isMissile) {
-        ctx.fillRect(pr.x - 2, pr.y, 8, 16);
-        ctx.fillStyle = '#f59e0b';
-        ctx.fillRect(pr.x, pr.y + 16, 4, 4 + Math.random() * 8);
-      } else {
-        ctx.fillRect(pr.x, pr.y, pr.width, pr.height);
+    // --- DEATH ANIMATION ---
+    if (gameState === 'DEATH_ANIM') {
+      p.deathTimer++;
+      if (p.deathTimer % 5 === 0) {
+        spawnParticle(p.x + p.width/2, p.y + p.height/2, '#ef4444', 'smoke', 5);
+        playSound('explosion');
       }
-    });
-
-    particles.current.forEach((part, i) => {
-      ctx.globalAlpha = part.life;
-      ctx.fillStyle = part.color;
-      ctx.fillRect(part.x, part.y, part.size, part.size);
-      part.x += part.vx; part.y += part.vy;
-      part.life -= part.decay || 0.02;
-      if (part.life <= 0) particles.current.splice(i, 1);
-    });
-    ctx.globalAlpha = 1;
-  };
-
-  const createExplosion = (x: number, y: number, color: string, count: number = 10) => {
-    for (let i = 0; i < count; i++) {
-      particles.current.push({
-        x, y, vx: (Math.random() - 0.5) * 6, vy: (Math.random() - 0.5) * 6,
-        life: 1.0, color: color, size: 2 + Math.random() * 4, decay: 0.02 + Math.random() * 0.03
-      });
-    }
-  };
-
-  const updateShooter = useCallback(() => {
-    if (gameState !== 'PLAYING') return;
-    const p = player.current;
-    
-    const isSlowMo = p.slowMoFrames > 0;
-    const timeScale = isSlowMo ? 0.4 : 1.0;
-
-    const moveLeft = keysPressed.current['ArrowLeft'] || keysPressed.current['a'];
-    const moveRight = keysPressed.current['ArrowRight'] || keysPressed.current['d'];
-    if (moveLeft) { p.velocityX = Math.max(p.velocityX - 0.7, -7); p.tilt = -0.2; }
-    else if (moveRight) { p.velocityX = Math.min(p.velocityX + 0.7, 7); p.tilt = 0.2; }
-    else { p.velocityX *= 0.88; p.tilt *= 0.8; }
-    p.x += p.velocityX; p.x = Math.max(0, Math.min(dims.w - p.width, p.x));
-
-    stars.current.forEach(s => { s.y += s.speed * timeScale; if (s.y > dims.h) s.y = -10; });
-
-    const shotDelay = p.rapidFireFrames > 0 ? 80 : 200;
-    if (keysPressed.current[' '] && Date.now() - lastShotTime.current > shotDelay) {
-      const damage = p.damageBoostFrames > 0 ? 3 : 1;
-      projectiles.current.push({ x: p.x + 13, y: p.y, width: 4, height: 15, velocityX: 0, velocityY: -10, owner: 'player', color: '#5de2ef', damage });
-      if (p.tripleShotFrames > 0) {
-        projectiles.current.push({ x: p.x, y: p.y + 10, width: 4, height: 15, velocityX: -2, velocityY: -9, owner: 'player', color: '#fbbf24', damage });
-        projectiles.current.push({ x: p.x + 26, y: p.y + 10, width: 4, height: 15, velocityX: 2, velocityY: -9, owner: 'player', color: '#fbbf24', damage });
-      }
-      playSound('shoot'); lastShotTime.current = Date.now();
-    }
-
-    if (p.shieldFrames > 0) p.shieldFrames--;
-    if (p.tripleShotFrames > 0) p.tripleShotFrames--;
-    if (p.damageBoostFrames > 0) p.damageBoostFrames--;
-    if (p.slowMoFrames > 0) p.slowMoFrames--;
-    if (p.rapidFireFrames > 0) p.rapidFireFrames--;
-    if (p.ghostFrames > 0) p.ghostFrames--;
-    if (p.invincibilityFrames > 0) p.invincibilityFrames--;
-
-    levelData.current.enemies.forEach((e, ei) => {
-      if (e.phase === 'entry') {
-        e.x += (e.targetX! - e.x) * 0.05 * timeScale; e.y += (e.targetY! - e.y) * 0.05 * timeScale;
-        if (Math.abs(e.x - e.targetX!) < 3) e.phase = 'active';
-      } else {
-        e.sineOffset! += 0.04 * timeScale;
-        e.x += Math.sin(e.sineOffset!) * 1.5 * timeScale;
-        e.y += e.velocityY * timeScale;
-      }
-
-      let fireChance = 0.005;
-      if (e.type === 'scout') fireChance = 0.02;
-      else if (e.type === 'bomber') fireChance = 0.01;
-      else if (e.type === 'heavy') fireChance = 0.003;
-
-      if (Math.random() < fireChance * timeScale && e.y > 0) {
-        if (e.type === 'heavy') {
-           projectiles.current.push({ x: e.x + e.width/2, y: e.y + e.height, width: 8, height: 16, velocityX: 0, velocityY: 4, owner: 'enemy', color: '#ea580c', damage: 2, isMissile: true });
-        } else {
-           projectiles.current.push({ x: e.x + e.width/2, y: e.y + e.height, width: 6, height: 12, velocityX: 0, velocityY: 6, owner: 'enemy', color: '#f43f5e', damage: 1 });
+      if (p.deathTimer > 120) {
+        try {
+          const newScores = [...highScores, { score, date: new Date().toLocaleDateString(), wave }].sort((a,b) => b.score - a.score).slice(0, 10);
+          setHighScores(newScores);
+          localStorage.setItem('sg_highscores', JSON.stringify(newScores));
+        } catch (e) {
+          console.error("Save failed", e);
         }
+        setGameState('GAME_OVER');
       }
+      draw();
+      requestRef.current = requestAnimationFrame(update);
+      return;
+    }
 
-      projectiles.current.forEach((pr, pi) => {
-        if (pr.owner === 'player' && pr.x < e.x + e.width && pr.x + pr.width > e.x && pr.y < e.y + e.height && pr.y + pr.height > e.y) {
-          e.health -= pr.damage; e.hitFlash = 5; projectiles.current.splice(pi, 1);
-          if (e.health <= 0) {
-            playSound('explosion'); createExplosion(e.x + e.width/2, e.y + e.height/2, '#f43f5e', 15);
-            levelData.current.enemies.splice(ei, 1);
-            setScore(s => s + (e.type === 'heavy' ? 500 : 150));
-            if (Math.random() < 0.2) {
-              const types: PowerUp['type'][] = ['life', 'shield', 'triple_shot', 'power_boost', 'slow_mo', 'rapid_fire', 'emp', 'ghost'];
-              const type = types[Math.floor(Math.random() * types.length)];
-              levelData.current.powerUps.push({ x: e.x, y: e.y, width: 20, height: 20, collected: false, type, velocityY: 1.5 });
+    const { up, down, left, right, fire, dash } = settings.keyBinds;
+    
+    // --- PHYSICS (PLAYER - GREEN ZONE) ---
+    let ax = 0, ay = 0;
+    if (keys.current[left]) ax -= 1;
+    if (keys.current[right]) ax += 1;
+    if (keys.current[up]) ay -= 1;
+    if (keys.current[down]) ay += 1;
+
+    if (keys.current[dash] && p.dashCooldown <= 0) {
+      p.dashFrames = 15;
+      p.dashCooldown = 60; 
+      const boostDirX = ax !== 0 ? ax : 0;
+      const boostDirY = ay !== 0 ? ay : (ax === 0 ? -1 : 0);
+      p.velocityX += boostDirX * DASH_POWER * 5;
+      p.velocityY += boostDirY * DASH_POWER * 5;
+      playSound('dash');
+      shake.current = 5;
+    }
+
+    let speed = (p.speedBoostFrames > 0 ? 1.5 : 1.0) * (selectedSkin === 'PHANTOM' ? 1.2 : 1.0);
+    if (p.dashFrames > 0) speed = 0;
+
+    p.velocityX += ax * ACCELERATION * speed;
+    p.velocityY += ay * ACCELERATION * speed;
+    p.velocityX *= FRICTION;
+    p.velocityY *= FRICTION;
+    p.x += p.velocityX;
+    p.y += p.velocityY;
+
+    // ZONE RESTRICTION: PLAYER (BOTTOM 50%)
+    const safeZoneTop = dims.h * 0.5;
+    if (p.x < 0) { p.x = 0; p.velocityX = 0; }
+    if (p.x > dims.w - p.width) { p.x = dims.w - p.width; p.velocityX = 0; }
+    if (p.y < safeZoneTop) { p.y = safeZoneTop; p.velocityY = 0; } 
+    if (p.y > dims.h - p.height) { p.y = dims.h - p.height; p.velocityY = 0; }
+
+    p.tilt = p.velocityX * 0.05;
+
+    if (p.dashFrames > 0) p.dashFrames--;
+    if (p.dashCooldown > 0) p.dashCooldown--;
+    if (p.invincibilityFrames > 0) p.invincibilityFrames--;
+    if (p.rapidFireFrames > 0) p.rapidFireFrames--;
+    if (p.damageBoostFrames > 0) p.damageBoostFrames--;
+    if (p.speedBoostFrames > 0) p.speedBoostFrames--;
+    if (p.slowMoFrames > 0) p.slowMoFrames--;
+    if (p.magnetFrames > 0) p.magnetFrames--;
+    if (p.shieldFrames > 0) p.shieldFrames--;
+    if (p.abilityCharge < 100) p.abilityCharge += 0.1;
+
+    if (p.dashFrames > 0 && p.dashFrames % 3 === 0) {
+      spawnParticle(p.x + p.width/2, p.y + p.height/2, '#5de2ef', 'smoke', 1);
+    }
+
+    // --- SHOOTING ---
+    const fireRate = p.rapidFireFrames > 0 ? 60 : (selectedSkin === 'PHANTOM' ? 140 : 200);
+    const damage = (selectedSkin === 'STRIKER' ? 2 : 1) * (p.damageBoostFrames > 0 ? 2 : 1);
+    
+    if (keys.current[fire] && Date.now() - lastTime.current > fireRate) {
+      const projectiles = levelData.current.projectiles;
+      const mid = p.x + p.width/2;
+      
+      projectiles.push({ x: mid - 2, y: p.y, width: 4, height: 14, velocityX: 0, velocityY: -15, owner: 'player', color: '#5de2ef', damage });
+      
+      if (p.powerLevel > 1) {
+        projectiles.push({ x: mid - 10, y: p.y + 5, width: 3, height: 12, velocityX: -2, velocityY: -13, owner: 'player', color: '#5de2ef', damage });
+        projectiles.push({ x: mid + 10, y: p.y + 5, width: 3, height: 12, velocityX: 2, velocityY: -13, owner: 'player', color: '#5de2ef', damage });
+      }
+      
+      playSound('shoot');
+      lastTime.current = Date.now();
+    }
+
+    // --- ENEMIES AI & BOSS ---
+    const enemyZoneBottom = dims.h * 0.5;
+
+    levelData.current.enemies.forEach(e => {
+      e.behaviorTimer++;
+      
+      let speed = 2 * difficultyMult.current * timeScale;
+      
+      if (e.isBoss) {
+        // BOSS MOVEMENT & ATTACKS
+        // Enter arena
+        if (e.y < 80) {
+          e.y += speed * 0.5;
+        } else {
+          // Hover Pattern: Figure-8 or Sine
+          e.x += Math.cos(e.behaviorTimer * 0.02) * 2 * timeScale;
+          e.y += Math.sin(e.behaviorTimer * 0.03) * 1 * timeScale;
+          
+          // Clamp X to stay on screen
+          if (e.x < 50) e.x = 50;
+          if (e.x > dims.w - e.width - 50) e.x = dims.w - e.width - 50;
+        }
+
+        // BOSS ATTACK LOGIC
+        // Every ~3 seconds (at 60fps)
+        if (e.behaviorTimer % 180 === 0) {
+          const bossLevel = Math.floor(wave / 5);
+          
+          // Even Bosses (Wave 10, 20): Homing Missiles
+          if (bossLevel % 2 === 0) {
+            for(let k=0; k<3; k++) {
+              levelData.current.projectiles.push({
+                x: e.x + e.width/2 + (k-1)*20, y: e.y + e.height,
+                width: 8, height: 16, velocityX: (Math.random()-0.5)*2, velocityY: 3,
+                owner: 'enemy', color: '#f97316', damage: 1, isMissile: true
+              });
+            }
+          } 
+          // Odd Bosses (Wave 5, 15): Shotgun Spread
+          else {
+            for(let k=-2; k<=2; k++) {
+              levelData.current.projectiles.push({
+                x: e.x + e.width/2, y: e.y + e.height,
+                width: 6, height: 12, velocityX: k * 2, velocityY: 5,
+                owner: 'enemy', color: '#fbbf24', damage: 1
+              });
             }
           }
         }
-      });
-      
-      if (e.x < p.x + p.width && e.x + e.width > p.x && e.y < p.y + p.height && e.y + e.height > p.y) {
-        if (p.invincibilityFrames === 0 && p.ghostFrames === 0) {
-          if (p.shieldFrames > 0) { p.shieldFrames = 0; p.invincibilityFrames = 60; }
-          else { setLives(l => l - 1); p.invincibilityFrames = 100; }
-          playSound('explosion'); createExplosion(p.x, p.y, '#f43f5e', 20);
-          if (lives <= 1 && p.shieldFrames <= 0) setGameState('GAME_OVER');
-          levelData.current.enemies.splice(ei, 1);
+      } else {
+        // STANDARD ENEMY AI
+        if (e.y < 50) {
+          e.y += speed; // Enter screen
+        } else {
+          // ZONING LOGIC
+          if (e.type === 'scout') {
+             e.y += Math.sin(e.behaviorTimer * 0.05) * speed; 
+             e.x += Math.sin(e.behaviorTimer * 0.1) * 3 * timeScale;
+          } else if (e.type === 'fighter') {
+             e.y += Math.cos(e.behaviorTimer * 0.02) * speed * 0.5;
+             if (e.x < p.x) e.x += 0.5 * timeScale;
+             if (e.x > p.x) e.x -= 0.5 * timeScale;
+          } else {
+             e.y += Math.sin(e.behaviorTimer * 0.02) * speed * 0.2;
+          }
+
+          // Hard Clamp to Red Zone
+          if (e.y > enemyZoneBottom - e.height) {
+             e.y = enemyZoneBottom - e.height;
+          }
+        }
+
+        // Standard Shooting
+        const shotChance = (e.type === 'sniper' ? 0.02 : 0.005) * difficultyMult.current * timeScale;
+        if (Math.random() < shotChance && e.y > 0) {
+          const pSpeed = e.type === 'sniper' ? 8 : 5;
+          levelData.current.projectiles.push({
+            x: e.x + e.width/2, y: e.y + e.height, width: 6, height: 12,
+            velocityX: 0, velocityY: pSpeed, owner: 'enemy', color: '#f43f5e', damage: 1
+          });
         }
       }
-
-      if (e.hitFlash && e.hitFlash > 0) e.hitFlash--;
-      if (e.y > dims.h) levelData.current.enemies.splice(ei, 1);
     });
 
-    projectiles.current.forEach((pr, i) => { 
-      pr.y += pr.velocityY * (pr.owner === 'enemy' ? timeScale : 1.0); 
-      pr.x += pr.velocityX * (pr.owner === 'enemy' ? timeScale : 1.0); 
+    // --- COLLISIONS (OPTIMIZED REVERSE LOOP) ---
+    const projectiles = levelData.current.projectiles;
+    const enemies = levelData.current.enemies;
+
+    for (let i = projectiles.length - 1; i >= 0; i--) {
+      const pr = projectiles[i];
       
-      if (pr.owner === 'enemy' && pr.x < p.x + p.width && pr.x + pr.width > p.x && pr.y < p.y + p.height && pr.y + pr.height > p.y) {
-        if (p.invincibilityFrames === 0 && p.ghostFrames === 0) {
-          if (p.shieldFrames > 0) { p.shieldFrames = 0; p.invincibilityFrames = 60; }
-          else { setLives(l => l - pr.damage); p.invincibilityFrames = 100; }
-          projectiles.current.splice(i, 1);
-          playSound('explosion');
-          if (lives - pr.damage <= 0 && p.shieldFrames <= 0) setGameState('GAME_OVER');
+      // Homing Logic for Missiles
+      if (pr.isMissile && pr.owner === 'enemy') {
+         const dx = (p.x + p.width/2) - pr.x;
+         const dy = (p.y + p.height/2) - pr.y;
+         const angle = Math.atan2(dy, dx);
+         // Turn slowly towards player
+         pr.velocityX = pr.velocityX * 0.95 + Math.cos(angle) * 0.2;
+         pr.velocityY = pr.velocityY * 0.95 + Math.sin(angle) * 0.2;
+         
+         // Smoke trail
+         if (Math.random() < 0.2) {
+            spawnParticle(pr.x + pr.width/2, pr.y, '#f97316', 'smoke', 1);
+         }
+      }
+
+      pr.x += pr.velocityX * timeScale;
+      pr.y += pr.velocityY * timeScale;
+
+      let removed = false;
+
+      // Cleanup
+      if (pr.y < -50 || pr.y > dims.h + 50 || pr.x < -50 || pr.x > dims.w + 50) {
+        projectiles.splice(i, 1);
+        continue;
+      }
+
+      if (pr.owner === 'player') {
+        for (let j = enemies.length - 1; j >= 0; j--) {
+          const e = enemies[j];
+          if (checkRectCollide(pr, e)) {
+            e.health -= pr.damage;
+            e.hitFlash = 5;
+            spawnParticle(pr.x, pr.y, '#5de2ef', 'spark', 2);
+            projectiles.splice(i, 1);
+            removed = true;
+
+            if (e.health <= 0) {
+              playSound('explosion');
+              spawnParticle(e.x + e.width/2, e.y + e.height/2, e.isBoss ? '#fbbf24' : '#f43f5e', 'smoke', e.isBoss ? 20 : 8);
+              enemies.splice(j, 1);
+              setScore(s => s + (e.isBoss ? 5000 : (e.type === 'heavy' ? 500 : 100)));
+              spawnPowerUp(e.x + e.width/2, e.y + e.height/2);
+              shake.current = e.isBoss ? 20 : 5;
+              
+              if (e.isBoss) {
+                difficultyMult.current *= 2;
+                setMessage(t.TXT_WAVE_CLR);
+                setTimeout(() => setMessage(null), 2000);
+              }
+            }
+            break; // Bullet hit something, stop checking enemies
+          }
+        }
+      } else {
+        // Enemy bullet vs Player
+        if (checkRectCollide(pr, p) && p.invincibilityFrames <= 0) {
+          if (p.shieldFrames > 0) {
+            p.shieldFrames = 0;
+            p.invincibilityFrames = 60;
+            playSound('dash');
+          } else {
+            p.lives--; // Update reference for logic
+            setLives(p.lives); // Sync state for UI
+            
+            p.invincibilityFrames = 90;
+            playSound('explosion');
+            shake.current = 15;
+            
+            if (p.lives <= 0) setGameState('DEATH_ANIM');
+          }
+          projectiles.splice(i, 1);
+          removed = true;
         }
       }
-      if (pr.y < -50 || pr.y > dims.h + 50) projectiles.current.splice(i, 1);
-    });
+    }
 
-    levelData.current.powerUps.forEach((pu, i) => {
+    // PowerUps
+    const powerUps = levelData.current.powerUps;
+    for (let i = powerUps.length - 1; i >= 0; i--) {
+      const pu = powerUps[i];
       pu.y += pu.velocityY * timeScale;
-      if (pu.x < p.x + p.width && pu.x + pu.width > p.x && pu.y < p.y + p.height && pu.y + pu.height > p.y) {
-        playSound('powerup');
-        if (pu.type === 'life') setLives(l => Math.min(5, l + 1));
-        else if (pu.type === 'shield') p.shieldFrames = 600;
-        else if (pu.type === 'triple_shot') p.tripleShotFrames = 600;
-        else if (pu.type === 'power_boost') p.damageBoostFrames = 500;
-        else if (pu.type === 'slow_mo') p.slowMoFrames = 400;
-        else if (pu.type === 'rapid_fire') p.rapidFireFrames = 400;
-        else if (pu.type === 'ghost') p.ghostFrames = 300;
-        else if (pu.type === 'emp') {
-          createExplosion(dims.w/2, dims.h/2, '#fff', 50);
-          projectiles.current = projectiles.current.filter(proj => proj.owner === 'player');
-          levelData.current.enemies.forEach(en => { en.health -= 2; en.hitFlash = 10; });
+      
+      if (p.magnetFrames > 0) {
+        const dx = (p.x + p.width/2) - pu.x;
+        const dy = (p.y + p.height/2) - pu.y;
+        const dist = Math.sqrt(dx*dx + dy*dy);
+        if (dist < 300) {
+          pu.x += (dx / dist) * 5 * timeScale;
+          pu.y += (dy / dist) * 5 * timeScale;
         }
-        levelData.current.powerUps.splice(i, 1);
       }
-      if (pu.y > dims.h) levelData.current.powerUps.splice(i, 1);
+
+      if (checkRectCollide(pu, p)) {
+        playSound('powerup');
+        applyPowerUp(pu.type);
+        powerUps.splice(i, 1);
+        setScore(s => s + 50);
+      } else if (pu.y > dims.h) {
+        powerUps.splice(i, 1);
+      }
+    }
+
+    // --- PARTICLE UPDATES ---
+    const particles = levelData.current.particles;
+    for (let i = particles.length - 1; i >= 0; i--) {
+      const pt = particles[i];
+      pt.x += pt.vx * timeScale; pt.y += pt.vy * timeScale; pt.life -= pt.decay;
+      if (pt.life <= 0) particles.splice(i, 1);
+    }
+
+    if (levelData.current.enemies.length === 0 && wave > 0) {
+      spawnWave(wave + 1);
+    }
+
+    draw();
+    requestRef.current = requestAnimationFrame(() => update(performance.now()));
+  }, [gameState, wave, settings.keyBinds, dims]);
+
+  // --- DRAWING ENGINE ---
+  const draw = () => {
+    const ctx = canvasRef.current?.getContext('2d');
+    if (!ctx) return;
+
+    ctx.setTransform(1, 0, 0, 1, 0, 0); 
+    ctx.fillStyle = '#020617';
+    ctx.fillRect(0, 0, dims.w, dims.h);
+    
+    // Safety check for NaN shake values causing black screens
+    if (shake.current > 0 && !isNaN(shake.current)) {
+      const s = shake.current;
+      ctx.translate((Math.random() - 0.5) * s, (Math.random() - 0.5) * s);
+      shake.current *= 0.9;
+      if (shake.current < 0.5) shake.current = 0;
+    } else {
+      shake.current = 0;
+    }
+
+    // Visualizing Zones (Optional debug style, subtle background hint)
+    // Red Zone (Top)
+    ctx.fillStyle = 'rgba(255, 0, 0, 0.02)';
+    ctx.fillRect(0, 0, dims.w, dims.h * 0.5);
+    // Green Zone (Bottom)
+    ctx.fillStyle = 'rgba(0, 255, 0, 0.02)';
+    ctx.fillRect(0, dims.h * 0.5, dims.w, dims.h * 0.5);
+
+    stars.current.forEach(s => {
+      ctx.fillStyle = `rgba(255,255,255,${s.opacity})`;
+      ctx.fillRect(s.x, s.y, s.size, s.size);
     });
 
-    if (levelData.current.enemies.length === 0) spawnWave(shooterWave + 1);
+    levelData.current.powerUps.forEach(pu => {
+      ctx.save();
+      ctx.translate(pu.x + 10, pu.y + 10);
+      const color = getPowerUpColor(pu.type);
+      ctx.shadowBlur = 15; ctx.shadowColor = color; ctx.fillStyle = color;
+      ctx.beginPath(); ctx.arc(0, 0, 8, 0, Math.PI*2); ctx.fill();
+      ctx.fillStyle = '#fff'; ctx.font = '10px Arial'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      ctx.fillText(pu.type[0], 0, 1);
+      ctx.restore();
+    });
 
-    renderShooter();
-    requestRef.current = requestAnimationFrame(updateShooter);
-  }, [gameState, dims, shooterWave, spawnWave, lives]);
+    levelData.current.enemies.forEach(e => {
+      ctx.save();
+      ctx.translate(e.x + e.width/2, e.y + e.height/2);
+      if (e.isBoss) ctx.scale(1.5, 1.5);
+      
+      const color = e.hitFlash > 0 ? '#fff' : (e.type === 'heavy' ? '#a78bfa' : e.type === 'boss' ? '#fbbf24' : '#f43f5e');
+      if (settings.quality === 'HIGH') { ctx.shadowBlur = 10; ctx.shadowColor = color; }
+      ctx.fillStyle = color;
+      ctx.strokeStyle = color;
 
-  const initShooter = () => {
-    initAudio(); setGameState('PLAYING'); setGameMode('SHOOTER'); setScore(0); setLives(3); setShooterWave(1);
-    setIsSelectingSkin(false);
-    projectiles.current = [];
-    levelData.current.powerUps = [];
-    player.current = { ...player.current, x: dims.w / 2 - 15, y: dims.h - 100, velocityX: 0, velocityY: 0, 
-      shieldFrames: 0, tripleShotFrames: 0, damageBoostFrames: 0, slowMoFrames: 0, rapidFireFrames: 0, ghostFrames: 0, invincibilityFrames: 0 };
-    const s: Star[] = []; for (let i = 0; i < 60; i++) s.push({ x: Math.random() * dims.w, y: Math.random() * dims.h, size: Math.random() * 2, speed: 1 + Math.random() * 2, opacity: Math.random() });
-    stars.current = s; spawnWave(1);
-    startMusic();
+      if (e.type === 'scout') { 
+        ctx.beginPath(); ctx.moveTo(0, 15); ctx.lineTo(10, -10); ctx.lineTo(-10, -10); ctx.fill();
+      } else if (e.type === 'fighter') { 
+        ctx.fillRect(-5, -15, 10, 30); ctx.beginPath(); ctx.moveTo(0, 5); ctx.lineTo(15, -5); ctx.lineTo(-15, -5); ctx.fill();
+      } else if (e.type === 'heavy') { 
+        ctx.fillRect(-15, -15, 30, 30); ctx.fillStyle = '#000'; ctx.fillRect(-5, -5, 10, 10);
+      } else if (e.type === 'boss') { 
+        ctx.beginPath(); ctx.arc(0, 0, 30, 0, Math.PI*2); ctx.fill();
+        ctx.fillStyle = '#ef4444'; ctx.fillRect(-40, -10, 80, 20);
+      } else { 
+         ctx.fillRect(-2, -20, 4, 40); ctx.fillRect(-10, 0, 20, 5);
+      }
+      
+      if (e.hitFlash > 0) e.hitFlash--;
+      ctx.restore();
+    });
+
+    const p = player.current;
+    if (gameState !== 'DEATH_ANIM' && p.invincibilityFrames % 10 < 5) {
+      ctx.save();
+      ctx.translate(p.x + p.width/2, p.y + p.height/2);
+      ctx.rotate(p.tilt);
+      
+      const pColor = selectedSkin === 'PHANTOM' ? '#d946ef' : (selectedSkin === 'STRIKER' ? '#ef4444' : '#22d3ee');
+      if (settings.quality === 'HIGH') { ctx.shadowBlur = p.dashFrames > 0 ? 25 : 15; ctx.shadowColor = pColor; }
+      ctx.fillStyle = pColor;
+      
+      ctx.beginPath(); ctx.moveTo(0, -16); ctx.lineTo(14, 14); ctx.lineTo(0, 8); ctx.lineTo(-14, 14); ctx.fill();
+      
+      if (p.shieldFrames > 0) {
+        ctx.strokeStyle = `rgba(14, 165, 233, ${Math.random() * 0.5 + 0.5})`;
+        ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(0, 0, 24, 0, Math.PI*2); ctx.stroke();
+      }
+      ctx.restore();
+    }
+
+    levelData.current.projectiles.forEach(pr => {
+      ctx.fillStyle = pr.color;
+      if (settings.quality === 'HIGH') { ctx.shadowBlur = 8; ctx.shadowColor = pr.color; }
+      ctx.fillRect(pr.x, pr.y, pr.width, pr.height);
+      ctx.shadowBlur = 0;
+    });
+
+    levelData.current.particles.forEach(pt => {
+      ctx.globalAlpha = pt.life;
+      ctx.fillStyle = pt.color;
+      if (pt.type === 'ring') {
+        ctx.strokeStyle = pt.color; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(pt.x, pt.y, pt.size * (2 - pt.life), 0, Math.PI*2); ctx.stroke();
+      } else {
+        ctx.fillRect(pt.x, pt.y, pt.size, pt.size);
+      }
+    });
+    ctx.globalAlpha = 1.0;
+  };
+
+  const checkRectCollide = (r1: {x: number, y: number, width: number, height: number}, r2: {x: number, y: number, width: number, height: number}) => {
+    return r1.x < r2.x + r2.width && r1.x + r1.width > r2.x && r1.y < r2.y + r2.height && r1.y + r1.height > r2.y;
+  };
+
+  const applyPowerUp = (type: PowerUpType) => {
+    const p = player.current;
+    switch(type) {
+      case 'LIFE': 
+        p.lives++;
+        setLives(p.lives);
+        break;
+      case 'SHIELD': p.shieldFrames = 600; break;
+      case 'TRIPLE': p.powerLevel = 2; break; 
+      case 'DAMAGE': p.damageBoostFrames = 600; break;
+      case 'RAPID': p.rapidFireFrames = 400; break;
+      case 'SPEED': p.speedBoostFrames = 600; break;
+      case 'MAGNET': p.magnetFrames = 900; break;
+      case 'TIME': p.slowMoFrames = 300; break;
+      case 'NUKE': 
+        levelData.current.enemies.forEach(e => {
+          e.health = 0; 
+          spawnParticle(e.x, e.y, '#fff', 'ring', 5);
+        }); 
+        shake.current = 30;
+        break;
+    }
+  };
+
+  const getPowerUpColor = (t: PowerUpType) => {
+    switch(t) {
+      case 'LIFE': return '#22c55e';
+      case 'SHIELD': return '#3b82f6';
+      case 'TRIPLE': return '#eab308';
+      case 'DAMAGE': return '#ef4444';
+      case 'RAPID': return '#f97316';
+      case 'SPEED': return '#06b6d4';
+      case 'MAGNET': return '#d946ef';
+      case 'TIME': return '#ffffff';
+      case 'NUKE': return '#a855f7';
+      default: return '#fff';
+    }
+  };
+
+  const initGame = () => {
+    if (!audioCtx.current) audioCtx.current = new (window.AudioContext || (window as any).webkitAudioContext)();
+    if (audioCtx.current.state === 'suspended') audioCtx.current.resume();
+    
+    setGameState('PLAYING'); setScore(0); setLives(3); setWave(1); difficultyMult.current = 1.0;
+    
+    // Explicitly reset lives in the ref to match the state
+    player.current = { 
+      ...player.current, 
+      x: dims.w/2, 
+      y: dims.h - 100, 
+      velocityX:0, 
+      velocityY:0, 
+      shieldFrames: 0, 
+      powerLevel: 1, 
+      abilityCharge: 0,
+      lives: 3
+    };
+    
+    levelData.current = { enemies: [], powerUps: [], projectiles: [], particles: [] };
+    
+    stars.current = [];
+    for(let i=0; i<60; i++) stars.current.push({ x: Math.random()*dims.w, y: Math.random()*dims.h, size: Math.random()*2, speed: 1+Math.random()*2, opacity: Math.random(), layer: 1 });
+    
+    spawnWave(1);
+    lastTime.current = performance.now();
   };
 
   useEffect(() => {
-    if (gameMode === 'SHOOTER' && gameState === 'PLAYING') {
-      requestRef.current = requestAnimationFrame(updateShooter);
-    }
-    return () => { if (requestRef.current) cancelAnimationFrame(requestRef.current); };
-  }, [gameMode, gameState, updateShooter]);
-
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      initAudio();
-      if ([' ', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Shift'].includes(e.key)) e.preventDefault();
-      keysPressed.current[e.key] = true;
-      keysPressed.current[e.key.toLowerCase()] = true;
-      if (e.key === 'Escape' && gameState === 'PLAYING') setGameState('PAUSED');
-      else if (e.key === 'Escape' && gameState === 'PAUSED') setGameState('PLAYING');
-    };
-    const handleKeyUp = (e: KeyboardEvent) => {
-      keysPressed.current[e.key] = false;
-      keysPressed.current[e.key.toLowerCase()] = false;
-    };
-    window.addEventListener('keydown', handleKeyDown);
-    window.addEventListener('keyup', handleKeyUp);
-    return () => { window.removeEventListener('keydown', handleKeyDown); window.removeEventListener('keyup', handleKeyUp); };
-  }, [gameState]);
+     if (gameState === 'PLAYING' || gameState === 'DEATH_ANIM') requestRef.current = requestAnimationFrame((t) => update(t));
+     return () => { if(requestRef.current) cancelAnimationFrame(requestRef.current); };
+  }, [gameState, update]);
 
   return (
-    <div className="relative w-full h-screen bg-[#020617] flex items-center justify-center overflow-hidden touch-none select-none font-sans">
-      <canvas ref={canvasRef} width={dims.w} height={dims.h} className="absolute inset-0 w-full h-full block" style={{ imageRendering: 'pixelated' }} />
+    <div className="w-full h-full bg-black relative overflow-hidden select-none touch-none">
+      <canvas ref={canvasRef} width={dims.w} height={dims.h} className="block w-full h-full" />
 
-      {gameState === 'INTRO' && (
-        <div className="absolute inset-0 z-[200] flex flex-col items-center justify-center bg-[#020617] cursor-pointer" onClick={() => setGameState('START')}>
-          <div className="animate-pulse flex flex-col items-center mb-10">
-            <div className="text-8xl md:text-[12rem] font-black text-[#5de2ef] italic drop-shadow-[0_10px_0_rgba(0,0,0,0.8)] leading-none">GA</div>
-            <h1 className="text-4xl md:text-6xl font-black text-white italic tracking-tighter -mt-4">GEMINI <span className="text-[#5de2ef]">ARCADE</span></h1>
-          </div>
-          <div className="text-center space-y-6 animate-in fade-in duration-1000 delay-500">
-            <div className="bg-red-600/20 border-2 border-red-500/50 px-4 py-1">
-              <p className="text-red-500 font-black text-[10px] md:text-xs uppercase italic tracking-[0.3em]">{t.IN_DEV}</p>
-            </div>
-            <p className="text-[#5de2ef] font-black text-sm tracking-[0.5em] animate-bounce uppercase">{t.START}</p>
-            <p className="text-white/30 font-bold text-[10px] uppercase tracking-widest">{t.CREATED_BY}</p>
-          </div>
+      {/* PAUSE OVERLAY */}
+      {gameState === 'PAUSED' && (
+        <div className="absolute inset-0 bg-black/60 backdrop-blur-sm flex flex-col items-center justify-center z-50">
+          <h2 className="text-4xl text-[#5de2ef] font-black italic mb-8">{t.PAUSE}</h2>
+          <button onClick={() => setGameState('PLAYING')} className="w-64 py-3 bg-[#1a2e35] border-y-2 border-[#5de2ef] text-[#5de2ef] font-bold mb-4">{t.RESUME}</button>
+          <button onClick={() => setGameState('START')} className="text-white/60 hover:text-white">{t.QUIT}</button>
         </div>
       )}
 
-      {gameState === 'START' && menuSection === 'MAIN' && !isSelectingSkin && (
-        <div className="absolute inset-0 z-50 flex flex-col items-center justify-center bg-[#0d141f]/60 backdrop-blur-md">
-          <h1 className="text-5xl md:text-8xl font-black text-[#5de2ef] italic mb-12 uppercase text-center drop-shadow-2xl">
-            STAR <span className="text-white">GEMINI</span>
-          </h1>
-          <div className="flex flex-col items-center gap-3">
-            <PixelButton label={t.PLAY} onClick={() => setMenuSection('PLAY')} />
-            <PixelButton label={t.TUTORIAL} onClick={() => {}} />
-            <PixelButton label={t.OPTIONS} onClick={() => setMenuSection('SETTINGS')} />
-            <PixelButton label={t.STORE} onClick={() => {}} />
-            <PixelButton label={t.QUIT} onClick={() => window.close()} width="w-48" className="mt-8 opacity-40 hover:opacity-100 transition-opacity" />
+      {/* MAIN MENU */}
+      {(gameState === 'INTRO' || gameState === 'START') && menuSection === 'MAIN' && (
+        <div className="absolute inset-0 flex flex-col items-center justify-center z-40 bg-black/80">
+          <div className="mb-12 text-center">
+             <h1 className="text-8xl font-black text-[#5de2ef] italic drop-shadow-[0_0_15px_rgba(93,226,239,0.5)]">SG</h1>
+             <p className="text-white tracking-[0.5em] text-sm opacity-80 mt-2">STAR GEMINI ARCADE</p>
           </div>
+          {gameState === 'INTRO' ? (
+            <button onClick={() => setGameState('START')} className="animate-pulse text-white text-xl font-bold tracking-widest">{t.START}</button>
+          ) : (
+            <div className="flex flex-col gap-3">
+              <button onClick={() => setMenuSection('PLAY')} className="w-72 py-4 bg-[#1a2e35] border-y-2 border-[#5de2ef] text-[#5de2ef] font-black tracking-widest hover:scale-105 transition-transform">{t.PLAY}</button>
+              <button onClick={() => setMenuSection('SETTINGS')} className="w-72 py-3 border-y border-white/20 text-white font-bold tracking-wide hover:bg-white/10">{t.OPTIONS}</button>
+              <button onClick={() => setMenuSection('HIGHSCORES')} className="w-72 py-3 border-y border-white/20 text-white font-bold tracking-wide hover:bg-white/10">{t.HIGHSCORES}</button>
+              <button onClick={() => setMenuSection('CREDITS')} className="w-72 py-3 border-y border-white/20 text-white font-bold tracking-wide hover:bg-white/10">{t.CREDITS}</button>
+            </div>
+          )}
         </div>
       )}
 
-      {menuSection === 'SETTINGS' && (
-        <div className="w-full max-w-4xl max-h-[90vh] overflow-y-auto bg-[#1a2e35] border-4 border-[#5de2ef] p-6 md:p-10 animate-in slide-in-from-right-10 duration-200 shadow-2xl z-[150]">
-          <div className="flex justify-between items-center mb-8 border-b-2 border-[#5de2ef]/20 pb-4">
-            <h2 className="text-2xl md:text-4xl font-black text-[#5de2ef] uppercase italic tracking-tighter">{t.SETTINGS_TITLE}</h2>
-            <PixelIconButton icon="✖" onClick={() => setMenuSection('MAIN')} size="w-10 h-10" />
+      {/* PLAY SETUP */}
+      {gameState === 'START' && menuSection === 'PLAY' && (
+        <div className="absolute inset-0 bg-black/95 flex flex-col items-center justify-center z-50">
+          <h2 className="text-3xl font-black text-[#5de2ef] mb-8 italic">{t.SELECT_SHIP}</h2>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-12">
+            {(['CORE', 'PHANTOM', 'STRIKER'] as ShooterSkin[]).map(s => (
+              <button key={s} onClick={() => setSelectedSkin(s)} 
+                className={`p-6 border-2 transition-all ${selectedSkin === s ? 'border-[#5de2ef] bg-[#5de2ef]/10 scale-110' : 'border-white/20 opacity-60'}`}>
+                <div className={`w-12 h-12 mx-auto mb-2 ${s==='CORE'?'bg-cyan-400':s==='PHANTOM'?'bg-fuchsia-500':'bg-red-500'}`} style={{clipPath: 'polygon(50% 0, 100% 100%, 0 100%)'}} />
+                <span className="text-white font-bold">{s}</span>
+              </button>
+            ))}
           </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
-            <div className="space-y-8">
-              <section>
-                <h3 className="text-[#5de2ef] font-black uppercase text-sm mb-4 border-l-4 border-[#5de2ef] pl-2">{t.AUDIO}</h3>
-                <div className="space-y-4">
-                  <div className="flex flex-col gap-1">
-                    <div className="flex justify-between text-white text-[10px] font-bold uppercase tracking-widest"><span>{t.VOLUME}</span><span>{Math.round(settings.masterVolume*100)}%</span></div>
-                    <input type="range" min="0" max="1" step="0.1" value={settings.masterVolume} onChange={(e) => setSettings({...settings, masterVolume: parseFloat(e.target.value)})} className="w-full accent-[#5de2ef]" />
-                  </div>
-                  <div className="flex flex-col gap-1">
-                    <div className="flex justify-between text-white text-[10px] font-bold uppercase tracking-widest"><span>{t.MUSIC}</span><span>{Math.round(settings.musicVolume*100)}%</span></div>
-                    <input type="range" min="0" max="1" step="0.1" value={settings.musicVolume} onChange={(e) => setSettings({...settings, musicVolume: parseFloat(e.target.value)})} className="w-full accent-[#5de2ef]" />
-                  </div>
-                </div>
-              </section>
-
-              <section>
-                <h3 className="text-[#5de2ef] font-black uppercase text-sm mb-4 border-l-4 border-[#5de2ef] pl-2">{t.GRAPHICS}</h3>
-                <div className="flex gap-2">
-                  {(['LOW', 'MEDIUM', 'HIGH'] as GraphicsQuality[]).map(q => (
-                    <button key={q} onClick={() => setSettings({...settings, quality: q})} className={`flex-1 py-2 border-2 text-[10px] font-black transition-all ${settings.quality === q ? 'bg-[#5de2ef] text-black border-[#5de2ef]' : 'bg-transparent text-[#5de2ef] border-[#5de2ef]/30'}`}>{t[`QUALITY_${q}` as keyof typeof t]}</button>
-                  ))}
-                </div>
-              </section>
-
-              <section>
-                <h3 className="text-[#5de2ef] font-black uppercase text-sm mb-4 border-l-4 border-[#5de2ef] pl-2">{t.KEYBOARD}</h3>
-                <div className="grid grid-cols-2 gap-2 text-[10px] text-white/60 font-bold uppercase">
-                  <div className="bg-black/20 p-2 border border-white/5">W/S/A/D - MOVE</div>
-                  <div className="bg-black/20 p-2 border border-white/5">SPACE - FIRE</div>
-                  <div className="bg-black/20 p-2 border border-white/5">SHIFT - DASH</div>
-                  <div className="bg-black/20 p-2 border border-white/5">ESC - PAUSE</div>
-                </div>
-              </section>
-            </div>
-
-            <div className="space-y-8">
-              <section>
-                <h3 className="text-[#5de2ef] font-black uppercase text-sm mb-4 border-l-4 border-[#5de2ef] pl-2">{t.LANGUAGE}</h3>
-                <div className="flex gap-2">
-                  <button onClick={() => setSettings({...settings, language: 'PT'})} className={`flex-1 py-2 border-2 font-black text-xs ${settings.language === 'PT' ? 'bg-[#5de2ef] text-black border-[#5de2ef]' : 'text-[#5de2ef] border-[#5de2ef]/30'}`}>PORTUGUÊS</button>
-                  <button onClick={() => setSettings({...settings, language: 'EN'})} className={`flex-1 py-2 border-2 font-black text-xs ${settings.language === 'EN' ? 'bg-[#5de2ef] text-black border-[#5de2ef]' : 'text-[#5de2ef] border-[#5de2ef]/30'}`}>ENGLISH</button>
-                </div>
-              </section>
-
-              <section>
-                <h3 className="text-[#5de2ef] font-black uppercase text-sm mb-4 border-l-4 border-[#5de2ef] pl-2">{t.CHANGELOG}</h3>
-                <div className="bg-black/40 p-4 border border-white/5 text-[9px] text-white/50 font-mono space-y-1 h-24 overflow-y-auto">
-                  <p className="text-[#5de2ef] font-bold">{t.V_LOG}</p>
-                  <p>{t.LOG_1}</p><p>{t.LOG_2}</p><p>{t.LOG_3}</p><p>{t.LOG_4}</p><p>{t.LOG_5}</p>
-                </div>
-              </section>
-
-              <section>
-                <h3 className="text-[#5de2ef] font-black uppercase text-sm mb-4 border-l-4 border-[#5de2ef] pl-2">{t.CREDITS}</h3>
-                <div className="text-[10px] text-white/70 italic space-y-1">
-                  <p>{t.DEV}</p><p>{t.ART}</p><p>{t.SOUND}</p>
-                </div>
-              </section>
-            </div>
-          </div>
+          <button onClick={initGame} className="w-72 py-4 bg-[#5de2ef] text-black font-black text-xl tracking-widest hover:brightness-110 shadow-[0_0_20px_rgba(93,226,239,0.4)]">{t.LAUNCH}</button>
+          <button onClick={() => setMenuSection('MAIN')} className="mt-6 text-white/50 hover:text-white">{t.BACK}</button>
         </div>
       )}
 
-      {menuSection === 'PLAY' && gameState === 'START' && !isSelectingSkin && (
-        <div className="absolute inset-0 z-50 flex flex-col items-center justify-center bg-[#0d141f]/80 backdrop-blur-xl">
-          <h2 className="text-4xl font-black text-[#5de2ef] mb-12 uppercase italic tracking-tighter drop-shadow-lg">MISSÕES DISPONÍVEIS</h2>
-          <div className="grid grid-cols-1 gap-6">
-            <div onClick={() => setIsSelectingSkin(true)} className="w-80 h-40 bg-[#1a2e35] border-4 border-[#5de2ef] p-6 cursor-pointer hover:scale-105 transition-all flex flex-col justify-end group shadow-2xl relative overflow-hidden">
-               <div className="absolute top-0 right-0 p-2 bg-[#5de2ef] text-black font-black text-[9px] uppercase">Unlocked</div>
-               <div className="text-[#5de2ef] font-black uppercase text-3xl group-hover:tracking-widest transition-all">STAR GEMINI</div>
-               <div className="text-white/40 text-[10px] uppercase font-bold tracking-[0.2em]">Ondas de Combate v2.1</div>
-            </div>
-          </div>
-          <PixelButton label={t.BACK} onClick={() => setMenuSection('MAIN')} width="w-48" className="mt-12" />
-        </div>
-      )}
-
-      {isSelectingSkin && (
-        <div className="absolute inset-0 z-[160] flex flex-col items-center justify-center bg-[#0d141f]/95 backdrop-blur-2xl p-4">
-          <h2 className="text-4xl md:text-6xl font-black text-[#5de2ef] mb-12 uppercase italic tracking-tighter">{t.SELECT_SHIP}</h2>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-12 w-full max-w-5xl">
-            {[
-              { id: 'CORE' as ShooterSkin, name: 'Core Alpha', color: '#22d3ee', desc: 'Equilibrada' },
-              { id: 'PHANTOM' as ShooterSkin, name: 'Phantom X', color: '#d946ef', desc: 'Ágil e Veloz' },
-              { id: 'STRIKER' as ShooterSkin, name: 'Striker Red', color: '#ef4444', desc: 'Poder de Fogo' }
-            ].map(skin => (
-              <div key={skin.id} onClick={() => { setSelectedSkin(skin.id); localStorage.setItem('gemini_selected_skin', skin.id); }} 
-                className={`p-6 bg-[#1a2e35] border-4 cursor-pointer transition-all hover:translate-y-[-5px] ${selectedSkin === skin.id ? 'border-[#5de2ef] bg-[#25424b]' : 'border-white/5 opacity-60 hover:opacity-100'}`}>
-                <div className="w-20 h-24 mx-auto mb-6 flex items-center justify-center bg-black/40 border-2 border-white/5 relative">
-                   <div className="absolute inset-0 opacity-10" style={{ background: `radial-gradient(circle, ${skin.color} 0%, transparent 70%)` }}></div>
-                   <div style={{ width: 30, height: 30, backgroundColor: skin.color, clipPath: 'polygon(50% 0%, 100% 100%, 0% 100%)' }}></div>
-                </div>
-                <h4 className="text-white font-black uppercase italic text-center text-xl mb-1">{skin.name}</h4>
-                <p className="text-[#5de2ef] text-[10px] font-bold uppercase text-center tracking-widest">{skin.desc}</p>
+      {/* HIGHSCORES */}
+      {menuSection === 'HIGHSCORES' && (
+        <div className="absolute inset-0 bg-black/95 flex flex-col items-center justify-center z-50 text-white">
+          <h2 className="text-4xl text-[#fbbf24] font-black mb-8">{t.HIGHSCORES}</h2>
+          <div className="w-full max-w-md bg-white/5 p-6 rounded-lg mb-8">
+            {highScores.length === 0 ? <p className="text-center opacity-50">NO DATA</p> : highScores.map((h, i) => (
+              <div key={i} className="flex justify-between border-b border-white/10 py-2">
+                <span className="text-[#5de2ef] font-bold">#{i+1}</span>
+                <span>{h.score.toString().padStart(6, '0')}</span>
+                <span className="opacity-50 text-sm">WAVE {h.wave}</span>
               </div>
             ))}
           </div>
-          <div className="flex gap-4">
-            <PixelButton label={t.BACK} onClick={() => setIsSelectingSkin(false)} width="w-40" />
-            <PixelButton label={t.LAUNCH} onClick={initShooter} width="w-64" className="bg-[#5de2ef]/10" />
-          </div>
+          <button onClick={() => setMenuSection('MAIN')} className="text-white/50 hover:text-white">{t.BACK}</button>
         </div>
       )}
-
-      {(gameState === 'PLAYING' || gameState === 'PAUSED') && (
-        <>
-          <div className="absolute top-0 left-0 right-0 p-4 md:p-6 flex justify-between items-start pointer-events-none z-[60] safe-area-inset">
-            <div className="bg-[#1a2e35]/90 border-2 border-[#5de2ef] px-4 py-2 shadow-xl flex gap-6 backdrop-blur-md">
-               <div>
-                 <span className="text-[10px] text-[#5de2ef] opacity-70 uppercase font-black block leading-none mb-1">{t.SCORE}</span>
-                 <span className="text-2xl font-black text-[#5de2ef] tracking-tighter leading-none">{score.toString().padStart(6, '0')}</span>
-               </div>
-               <div>
-                 <span className="text-[10px] text-[#5de2ef] opacity-70 uppercase font-black block leading-none mb-1">{t.WAVE}</span>
-                 <span className="text-2xl font-black text-[#5de2ef] leading-none">{shooterWave}</span>
-               </div>
+      
+       {/* SETTINGS */}
+       {menuSection === 'SETTINGS' && (
+        <div className="absolute inset-0 bg-black/95 flex flex-col items-center justify-center z-50 text-white">
+          <h2 className="text-4xl text-[#5de2ef] font-black mb-8">{t.OPTIONS}</h2>
+          <div className="flex flex-col gap-6 w-80">
+            <div>
+              <label className="text-xs font-bold opacity-70">MASTER VOLUME</label>
+              <input type="range" min="0" max="1" step="0.1" className="w-full accent-[#5de2ef]" value={settings.masterVolume} onChange={e => setSettings({...settings, masterVolume: parseFloat(e.target.value)})} />
             </div>
-            <div className="flex gap-2 pointer-events-auto">
-              <PixelIconButton icon={gameState === 'PAUSED' ? "▶" : "Ⅱ"} onClick={() => setGameState(g => g === 'PLAYING' ? 'PAUSED' : 'PLAYING')} size="w-12 h-12" />
-              <div className="bg-[#1a2e35]/90 border-2 border-[#5de2ef] p-3 flex gap-1 backdrop-blur-md">
-                 {[...Array(lives)].map((_, i) => (<span key={i} className="text-[#ff5d5d] text-xl drop-shadow-md">❤</span>))}
+            <div>
+              <label className="text-xs font-bold opacity-70">GRAPHICS</label>
+              <div className="flex gap-2 mt-1">
+                {['LOW', 'HIGH'].map((q) => (
+                  <button key={q} onClick={() => setSettings({...settings, quality: q as any})} className={`flex-1 py-1 border ${settings.quality === q ? 'bg-[#5de2ef] text-black border-[#5de2ef]' : 'border-white/30'}`}>{q}</button>
+                ))}
               </div>
             </div>
-          </div>
-          {gameState === 'PAUSED' && (
-            <div className="absolute inset-0 z-[180] bg-black/60 backdrop-blur-md flex flex-col items-center justify-center">
-              <h2 className="text-6xl md:text-8xl font-black text-white italic uppercase tracking-tighter mb-10 drop-shadow-2xl">{t.PAUSE}</h2>
-              <PixelButton label={t.RESUME} onClick={() => setGameState('PLAYING')} />
-              <PixelButton label="MENU" onClick={() => { setGameState('START'); setMenuSection('MAIN'); setIsSelectingSkin(false); }} className="mt-4 opacity-60" />
+             <div>
+              <label className="text-xs font-bold opacity-70">LANGUAGE</label>
+              <button onClick={() => setSettings({...settings, language: settings.language === 'PT' ? 'EN' : 'PT'})} className="w-full py-2 border border-white/30 mt-1">{settings.language === 'PT' ? 'PORTUGUÊS' : 'ENGLISH'}</button>
             </div>
-          )}
-        </>
+          </div>
+          <button onClick={() => setMenuSection('MAIN')} className="mt-10 text-white/50 hover:text-white">{t.BACK}</button>
+        </div>
       )}
 
+      {/* CREDITS */}
+      {menuSection === 'CREDITS' && (
+        <div className="absolute inset-0 bg-black/95 flex flex-col items-center justify-center z-50 text-white text-center">
+          <h2 className="text-4xl text-[#5de2ef] font-black mb-12">{t.CREDITS}</h2>
+          <p className="mb-2 font-bold text-xl">TR4FULHA TEAM</p>
+          <p className="opacity-60 mb-8">Development & Design</p>
+          <p className="mb-2 font-bold text-xl">MUSIC & SFX</p>
+          <p className="opacity-60 mb-12">Generated / Retro Synthesis</p>
+          <button onClick={() => setMenuSection('MAIN')} className="text-white/50 hover:text-white">{t.BACK}</button>
+        </div>
+      )}
+
+      {/* GAME OVER */}
       {gameState === 'GAME_OVER' && (
-        <div className="absolute inset-0 z-[190] bg-red-950/80 backdrop-blur-xl flex flex-col items-center justify-center p-6 text-center">
-          <h2 className="text-6xl md:text-9xl font-black text-white italic uppercase tracking-tighter mb-2">{t.VESSEL_DOWN}</h2>
-          <div className="bg-black/50 border-2 border-red-500 p-6 mb-10">
-            <p className="text-red-500 font-black uppercase text-xs mb-2">{t.FINAL_SCORE}</p>
-            <p className="text-6xl font-black text-white">{score}</p>
+        <div className="absolute inset-0 bg-red-950/90 backdrop-blur-md flex flex-col items-center justify-center z-50">
+          <h2 className="text-6xl font-black text-white italic mb-4">{t.GAME_OVER}</h2>
+          <div className="text-3xl text-[#5de2ef] font-bold mb-12">{t.SCORE}: {score}</div>
+          <button onClick={initGame} className="w-72 py-4 bg-white text-black font-black tracking-widest mb-4 hover:bg-gray-200">{t.RESTART}</button>
+          <button onClick={() => setGameState('START')} className="text-white/50 hover:text-white">MENU</button>
+        </div>
+      )}
+
+      {/* HUD */}
+      {(gameState === 'PLAYING' || gameState === 'PAUSED') && (
+        <div className="absolute top-0 left-0 right-0 p-4 md:p-6 flex justify-between items-start pointer-events-none z-20">
+          <div>
+            <div className="text-[#5de2ef] font-black text-xl md:text-2xl drop-shadow-md">{score.toString().padStart(6, '0')}</div>
+            <div className="text-white/60 font-bold text-xs">WAVE {wave}</div>
           </div>
-          <div className="flex flex-col gap-4">
-            <PixelButton label={t.RESTART} onClick={initShooter} />
-            <PixelButton label="MENU" onClick={() => { setGameState('START'); setMenuSection('MAIN'); setIsSelectingSkin(false); }} className="opacity-60" />
+          {message && <div className="absolute top-20 left-1/2 -translate-x-1/2 text-red-500 font-black animate-pulse text-xl whitespace-nowrap">{message}</div>}
+          <div className="flex flex-col items-end gap-2">
+             <div className="flex gap-1">
+               {[...Array(Math.max(0, lives))].map((_, i) => <span key={i} className="text-[#f43f5e] text-2xl drop-shadow-md">❤</span>)}
+             </div>
+             <div className="w-32 h-2 bg-white/10 rounded-full overflow-hidden border border-white/20">
+               <div className="h-full bg-yellow-400 transition-all duration-300" style={{ width: `${Math.min(100, player.current.abilityCharge)}%` }} />
+             </div>
           </div>
         </div>
       )}
 
-      {gameState === 'PLAYING' && <MobileControls onPress={(k, p) => { initAudio(); keysPressed.current[k] = p; keysPressed.current[k.toLowerCase()] = p; }} mode="SHOOTER" />}
-      
-      <div className="absolute inset-0 pointer-events-none opacity-[0.05] bg-[linear-gradient(rgba(18,16,16,0)_50%,rgba(0,0,0,0.25)_50%),linear-gradient(90deg,rgba(255,0,0,0.06),rgba(0,255,0,0.02),rgba(0,0,255,0.06))] bg-[length:100%_4px,3px_100%] z-[300]"></div>
+      {/* MOBILE CONTROLS */}
+      {gameState === 'PLAYING' && (
+        <MobileControls mode="SHOOTER" onPress={(k, p) => { 
+          keys.current[k] = p; 
+          if(k==='x' && p) useSpecial();
+        }} />
+      )}
     </div>
   );
 };

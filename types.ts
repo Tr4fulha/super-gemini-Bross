@@ -1,8 +1,20 @@
 
 export type GameMode = 'MENU' | 'PLATFORMER' | 'SHOOTER';
-export type GameState = 'INTRO' | 'START' | 'PLAYING' | 'PAUSED' | 'GAME_OVER' | 'WIN' | 'GENERATING';
-export type MenuSection = 'MAIN' | 'PLAY' | 'SETTINGS' | 'PROFILE' | 'ABOUT';
+export type GameState = 'INTRO' | 'START' | 'PLAYING' | 'PAUSED' | 'GAME_OVER' | 'WIN' | 'DEATH_ANIM' | 'CREDITS' | 'HIGHSCORES';
+export type MenuSection = 'MAIN' | 'PLAY' | 'SETTINGS' | 'CONTROLS';
 export type GraphicsQuality = 'LOW' | 'MEDIUM' | 'HIGH';
+export type SpecialAbility = 'OVERDRIVE' | 'EMP_STORM' | 'CHRONO_SPHERE';
+export type ShooterSkin = 'CORE' | 'PHANTOM' | 'STRIKER';
+
+export interface KeyBinds {
+  up: string;
+  down: string;
+  left: string;
+  right: string;
+  fire: string;
+  dash: string;
+  pause: string;
+}
 
 export interface GameSettings {
   masterVolume: number;
@@ -10,13 +22,13 @@ export interface GameSettings {
   musicVolume: number;
   quality: GraphicsQuality;
   language: 'PT' | 'EN';
+  keyBinds: KeyBinds;
 }
 
-export interface LevelInfo {
-  name: string;
-  theme: string;
-  color: string;
-  gravity: number;
+export interface HighScoreEntry {
+  score: number;
+  date: string;
+  wave: number;
 }
 
 export interface GameObject {
@@ -29,90 +41,64 @@ export interface GameObject {
 export interface Player extends GameObject {
   velocityX: number;
   velocityY: number;
-  isJumping: boolean;
   score: number;
   lives: number;
-  direction: 'left' | 'right';
-  isLarge: boolean;
   invincibilityFrames: number;
-  powerLevel: number;
   shieldFrames: number;
   maxShieldFrames: number;
-  hasDrone: boolean;
-  droneFrames: number;
-  maxDroneFrames: number;
-  tripleShotFrames: number;
-  maxTripleShotFrames: number;
   tilt: number;
-  energy: number;
-  maxEnergy: number;
   dashCooldown: number;
   dashFrames: number;
-  scrapCount: number;
-  // New status for additional powerups
-  damageBoostFrames: number;
   slowMoFrames: number;
   rapidFireFrames: number;
-  ghostFrames: number;
-  empCooldown: number;
+  damageBoostFrames: number;
+  speedBoostFrames: number;
+  magnetFrames: number;
+  deathTimer: number;
+  abilityCharge: number;
+  scrapCount: number;
+  powerLevel: number;
 }
 
-export interface Platform extends GameObject {
-  type: 'solid' | 'grass' | 'lava' | 'breakable' | 'moving';
-  isDestroyed?: boolean;
-  velocityX?: number;
-  velocityY?: number;
-  range?: number;
-  startX?: number;
-  startY?: number;
-}
+// 9 Power-up types
+export type PowerUpType = 
+  | 'LIFE'        // Green: +1 Life
+  | 'SHIELD'      // Blue: Invincibility
+  | 'TRIPLE'      // Yellow: 3 bullets
+  | 'DAMAGE'      // Red: 2x Damage
+  | 'RAPID'       // Orange: Fast fire
+  | 'SPEED'       // Cyan: Fast move
+  | 'NUKE'        // Purple: Kills all screen
+  | 'TIME'        // White: Slows enemies
+  | 'MAGNET';     // Pink: Attracts items
 
 export interface PowerUp extends GameObject {
-  type: 'life' | 'shield' | 'triple_shot' | 'power_boost' | 'slow_mo' | 'rapid_fire' | 'emp' | 'ghost' | 'scrap';
-  collected: boolean;
-  velocityY?: number;
+  type: PowerUpType;
+  velocityY: number;
+  pulseOffset: number;
 }
 
 export interface Enemy extends GameObject {
   velocityX: number;
   velocityY: number;
-  type: 'scout' | 'interceptor' | 'heavy' | 'bomber';
-  range: number;
-  startX: number;
-  startY: number;
+  type: 'scout' | 'fighter' | 'heavy' | 'sniper' | 'boss';
   health: number;
-  maxHealth?: number;
-  phase?: 'entry' | 'active';
-  targetX?: number;
-  targetY?: number;
-  sineOffset?: number;
-  hitFlash?: number;
-  rotation?: number;
-  lastShotTime?: number;
-}
-
-export interface Coin extends GameObject {
-  collected: boolean;
-}
-
-export interface Goal extends GameObject {}
-
-export interface LevelData {
-  platforms: Platform[];
-  enemies: Enemy[];
-  coins: Coin[];
-  powerUps: PowerUp[];
-  goal: Goal;
-  playerStart: { x: number; y: number };
+  maxHealth: number;
+  hitFlash: number;
+  lastShotTime: number;
+  isBoss?: boolean;
+  behaviorTimer: number; // For AI logic
+  angle: number; // For movement direction
 }
 
 export interface Projectile extends GameObject {
   velocityY: number;
   velocityX: number;
-  owner: 'player' | 'enemy' | 'drone';
+  owner: 'player' | 'enemy';
   color: string;
   damage: number;
   isMissile?: boolean;
+  trail?: boolean;
 }
 
 export interface Star {
@@ -121,6 +107,7 @@ export interface Star {
   size: number;
   speed: number;
   opacity: number;
+  layer: number; // Parallax
 }
 
 export interface Particle {
@@ -131,6 +118,14 @@ export interface Particle {
   life: number;
   color: string;
   size: number;
-  gravity?: number;
-  decay?: number;
+  decay: number;
+  glow: boolean;
+  type?: 'spark' | 'smoke' | 'ring';
+}
+
+export interface LevelData {
+  enemies: Enemy[];
+  powerUps: PowerUp[];
+  particles: Particle[]; // Moved to level data for better management
+  projectiles: Projectile[];
 }
